@@ -1,0 +1,530 @@
+<!-- Idhar you can edit wtvr is shown in the that thing, tablet -->
+<div data-room="9d9101">
+  <div class="engine-terminal">
+    <div class="engine-header">
+      <div>
+        <p class="engine-kicker">Upper Engine</p>
+        <h3>Developer Crew</h3>
+      </div>
+      <span class="engine-status-pill">Core Team</span>
+    </div>
+
+    <div class="engine-layout">
+      <section class="engine-panel">
+        <h4>Lead Systems</h4>
+        <div class="engine-dev-card">
+          <div class="engine-dev-avatar">D</div>
+          <div>
+            <p><strong>Da Crewmates Dev</strong></p>
+            <p>World movement, map zoning, tablet shell, and zone routing.</p>
+          </div>
+        </div>
+        <div class="engine-dev-card">
+          <div class="engine-dev-avatar alt">U</div>
+          <div>
+            <p><strong>UI Engineer</strong></p>
+            <p>Terminal layouts, profile screens, and responsive control panels.</p>
+          </div>
+        </div>
+      </section>
+
+      <section class="engine-panel">
+        <h4>Current Contributions</h4>
+        <div class="engine-list">
+          <div class="engine-item"><strong>Navigation HUD</strong><br>Map based zone warp and quick travel.</div>
+          <div class="engine-item"><strong>Social Systems</strong><br>Feed, DMs, privacy controls, and account screens.</div>
+          <div class="engine-item"><strong>Visual Layer</strong><br>Tablet frame, hands, scanline animation, and crewmate sprite color swaps.</div>
+        </div>
+      </section>
+    </div>
+
+    <section class="engine-panel">
+      <h4>Developer Notes</h4>
+      <div class="engine-note-grid">
+        <div class="engine-note"><span>01</span><p>Keep new zones modular inside terminal templates.</p></div>
+        <div class="engine-note"><span>02</span><p>Prefer local state for demo features until backend contracts are ready.</p></div>
+        <div class="engine-note"><span>03</span><p>Every zone should feel useful on its first screen.</p></div>
+      </div>
+    </section>
+  </div>
+</div>
+
+<div data-room="47402e">
+  <div class="engine-terminal">
+    <div class="engine-header lower">
+      <div>
+        <p class="engine-kicker">Lower Engine</p>
+        <h3>Support Crew</h3>
+      </div>
+      <span class="engine-status-pill">Core Team</span>
+    </div>
+
+    <div class="engine-layout">
+      <section class="engine-panel">
+        <h4>Backend Systems</h4>
+        <div class="engine-dev-card">
+          <div class="engine-dev-avatar">B</div>
+          <div>
+            <p><strong>Backend Engineer</strong></p>
+            <p>Server architecture, database design, and API contracts powering all zone features.</p>
+          </div>
+        </div>
+        <div class="engine-dev-card">
+          <div class="engine-dev-avatar alt">A</div>
+          <div>
+            <p><strong>Auth and Infra</strong></p>
+            <p>Login flows, session handling, and deployment pipeline setup.</p>
+          </div>
+        </div>
+      </section>
+
+      <section class="engine-panel">
+        <h4>Contributions</h4>
+        <div class="engine-list">
+          <div class="engine-item"><strong>Data Layer</strong><br>Schema design for crew profiles, posts, DMs, and zone activity.</div>
+          <div class="engine-item"><strong>Security</strong><br>Auth tokens, rate limiting, and permission scoping per zone.</div>
+          <div class="engine-item"><strong>Integrations</strong><br>NASA APOD feed, real-time alert hooks, and external API bridges.</div>
+        </div>
+      </section>
+    </div>
+
+    <section class="engine-panel">
+      <h4>Team Notes</h4>
+      <div class="engine-note-grid">
+        <div class="engine-note"><span>01</span><p>Backend contracts should be finalised before frontend zones go live.</p></div>
+        <div class="engine-note"><span>02</span><p>All API keys stay server-side — never expose in client bundles.</p></div>
+        <div class="engine-note"><span>03</span><p>Each zone feature needs a corresponding endpoint before shipping.</p></div>
+      </div>
+    </section>
+  </div>
+</div>
+
+<div data-room="641c34">
+  <div class="reactor-terminal">
+    <div class="reactor-header">
+      <div>
+        <p class="reactor-kicker">Reactor Core</p>
+        <h3>System Status</h3>
+      </div>
+      <div class="reactor-status-pill">
+        <span id="reactor-status-dot"></span>
+        <span id="reactor-status-label">All Systems Nominal</span>
+      </div>
+    </div>
+
+    <div class="reactor-stat-grid" id="reactor-stat-grid">
+      <div class="reactor-stat-card">
+        <span id="reactor-visitors">—</span>
+        <small>Visitors Today</small>
+      </div>
+      <div class="reactor-stat-card">
+        <span id="reactor-active">—</span>
+        <small>Active Sessions</small>
+      </div>
+      <div class="reactor-stat-card">
+        <span id="reactor-uptime">99.9%</span>
+        <small>Uptime</small>
+      </div>
+      <div class="reactor-stat-card">
+        <span id="reactor-latency">42ms</span>
+        <small>Avg Latency</small>
+      </div>
+    </div>
+
+    <div class="reactor-layout">
+      <section class="reactor-panel">
+        <h4>Zone Activity</h4>
+        <div id="reactor-zone-activity" class="reactor-list"></div>
+      </section>
+
+      <section class="reactor-panel">
+        <h4>System Health</h4>
+        <div class="reactor-health-list">
+          <div class="reactor-health-item">
+            <span>API</span>
+            <div class="dynamic-progress-bar"><div class="dynamic-progress-fill" style="width:98%; background:#0f766e;"></div></div>
+            <small>98%</small>
+          </div>
+          <div class="reactor-health-item">
+            <span>Database</span>
+            <div class="dynamic-progress-bar"><div class="dynamic-progress-fill" style="width:91%; background:#00d4ff;"></div></div>
+            <small>91%</small>
+          </div>
+          <div class="reactor-health-item">
+            <span>CDN</span>
+            <div class="dynamic-progress-bar"><div class="dynamic-progress-fill" style="width:100%; background:#0f766e;"></div></div>
+            <small>100%</small>
+          </div>
+          <div class="reactor-health-item">
+            <span>Auth</span>
+            <div class="dynamic-progress-bar"><div class="dynamic-progress-fill" style="width:95%; background:#0f766e;"></div></div>
+            <small>95%</small>
+          </div>
+        </div>
+      </section>
+    </div>
+
+    <section class="reactor-panel">
+      <h4>Recent Events</h4>
+      <div id="reactor-event-log" class="reactor-event-log"></div>
+    </section>
+  </div>
+</div>
+
+<div data-room="ffa420">
+  <div class="security-terminal">
+    <div class="security-header">
+      <div>
+        <p class="security-kicker">Security Office</p>
+        <h3>Reports and Moderation</h3>
+      </div>
+      <div class="security-score">
+        <span id="security-open-count">3</span>
+        <small>Open Tickets</small>
+      </div>
+    </div>
+
+    <div class="security-layout">
+      <section class="security-panel">
+        <h4>Submit a Report</h4>
+        <div class="security-form">
+          <label for="sec-report-type">Report Type</label>
+          <select id="sec-report-type" class="navhelp-select">
+            <option value="harassment">Harassment</option>
+            <option value="spam">Spam</option>
+            <option value="impersonation">Impersonation</option>
+            <option value="bug">Bug Report</option>
+            <option value="other">Other</option>
+          </select>
+          <label for="sec-report-target">Crew Name (if applicable)</label>
+          <input id="sec-report-target" class="dynamic-input" type="text" placeholder="Leave blank for bug reports">
+          <label for="sec-report-detail">Details</label>
+          <textarea id="sec-report-detail" class="dynamic-input" style="height:80px;" placeholder="Describe the issue clearly..."></textarea>
+          <button class="dynamic-btn" type="button" onclick="submitSecurityReport()">Submit Report</button>
+          <p id="sec-report-status" class="security-meta">No report submitted yet.</p>
+        </div>
+      </section>
+
+      <section class="security-panel">
+        <h4>Moderation Log</h4>
+        <div id="security-mod-log" class="security-mod-log"></div>
+      </section>
+    </div>
+  </div>
+</div>
+
+<div data-room="755c48">
+  <div class="medbay-terminal">
+    <div class="medbay-header">
+      <div>
+        <p class="medbay-kicker">MedBay Analytics</p>
+        <h3>Your Usage Vitals</h3>
+      </div>
+      <div class="medbay-score">
+        <span id="medbay-focus-score">78</span>
+        <small>Focus Score</small>
+      </div>
+    </div>
+
+    <div class="medbay-range-tabs">
+      <button class="medbay-tab selected" type="button" data-range="day" onclick="setMedbayRange('day')">Today</button>
+      <button class="medbay-tab" type="button" data-range="week" onclick="setMedbayRange('week')">Week</button>
+      <button class="medbay-tab" type="button" data-range="month" onclick="setMedbayRange('month')">Month</button>
+    </div>
+
+    <div class="medbay-stat-grid" id="medbay-stat-grid"></div>
+
+    <div class="medbay-layout">
+      <section class="medbay-panel">
+        <h4>Zone Usage</h4>
+        <div id="medbay-zone-list" class="medbay-zone-list"></div>
+      </section>
+
+      <section class="medbay-panel">
+        <h4>Health Signals</h4>
+        <div id="medbay-signal-list" class="medbay-signal-list"></div>
+      </section>
+    </div>
+
+    <section class="medbay-panel">
+      <h4>Session Notes</h4>
+      <div id="medbay-note-list" class="medbay-note-list"></div>
+    </section>
+  </div>
+</div>
+
+<div data-room="efa94a">
+  <p>Compose Fleet Transmission:</p>
+  <label>Encryption Topic:</label>
+  <input type="text" class="dynamic-input" placeholder="Enter transmission heading...">
+  <textarea class="dynamic-input" style="height:60px;" placeholder="Type encrypted text..."></textarea>
+</div>
+
+<div data-room="8f8b66">
+  <div class="cafeteria-terminal">
+    <div class="cafeteria-hero">
+      <div>
+        <p class="cafeteria-kicker">Cafeteria Zone</p>
+        <h3>Random Board</h3>
+        <p class="cafeteria-subtext">APOD spotlight + general feed sorted by likes.</p>
+      </div>
+      <button class="dynamic-btn" type="button" onclick="shuffleCafeteriaFeed()">Shuffle Feed</button>
+    </div>
+
+    <div class="cafeteria-layout">
+      <section class="cafeteria-panel">
+        <h4>APOD</h4>
+        <div class="cafeteria-apod-card">
+          <img id="cafeteria-apod-image" src="https://apod.nasa.gov/apod/image/1901/IC1805_Abolfath_3952.jpg" alt="Astronomy Picture of the Day style preview">
+          <div>
+            <p id="cafeteria-apod-title" class="cafeteria-apod-title">Heart Nebula</p>
+            <p id="cafeteria-apod-meta" class="cafeteria-meta">Astronomy Picture of the Day inspired card</p>
+            <a id="cafeteria-apod-link" class="dynamic-link" href="https://apod.nasa.gov/apod/astropix.html" target="_blank" rel="noopener noreferrer">Open NASA APOD</a>
+          </div>
+        </div>
+      </section>
+
+      <section class="cafeteria-panel">
+        <h4>General Feed (Top by Likes)</h4>
+        <div class="cafeteria-feed-carousel">
+          <button class="dynamic-btn cafeteria-arrow-btn" type="button" onclick="moveCafeteriaCarousel(-1)">&lt;</button>
+          <div class="cafeteria-feed-list" id="cafeteria-feed-list"></div>
+          <button class="dynamic-btn cafeteria-arrow-btn" type="button" onclick="moveCafeteriaCarousel(1)">&gt;</button>
+        </div>
+      </section>
+    </div>
+
+    <section class="cafeteria-panel" id="cafeteria-thread-section">
+      <h4>Selected Thread</h4>
+      <p id="cafeteria-selected-meta" class="cafeteria-meta">Select a post to interact.</p>
+      <div class="cafeteria-thread-detail" id="cafeteria-thread-detail">
+        <p>Click a post from the feed to open full details.</p>
+      </div>
+      <div class="cafeteria-compose">
+        <div class="cafeteria-actions">
+          <button class="dynamic-btn" type="button" onclick="voteOnCafeteriaPost('up')">Upvote</button>
+          <button class="dynamic-btn" type="button" onclick="voteOnCafeteriaPost('down')">Downvote</button>
+        </div>
+        <label for="cafeteria-comment-input">Add Comment</label>
+        <textarea id="cafeteria-comment-input" class="dynamic-input" style="height:72px;" placeholder="Write a comment..."></textarea>
+        <button class="dynamic-btn" type="button" onclick="addCafeteriaComment()">Post Comment</button>
+      </div>
+    </section>
+  </div>
+</div>
+
+<div data-room="00ff00">
+  <p>Life Support Scrubbers:</p>
+  <div class="dynamic-card">CO2 Filter Status: Nominal</div>
+  <div class="dynamic-card" style="margin-top:6px;">
+    Air Quality Index: 99%
+    <div class="dynamic-progress-bar"><div class="dynamic-progress-fill" style="width:99%; background:#2ecc71;"></div></div>
+  </div>
+</div>
+
+<div data-room="0000ff">
+  <p>Defense Grid Capacitors:</p>
+  <div class="dynamic-card">Laser Temperature: Cool</div>
+  <div class="dynamic-card" style="margin-top:6px;">
+    Shield Array: Charged
+    <div class="dynamic-progress-bar"><div class="dynamic-progress-fill" style="width:100%; background:#e74c3c;"></div></div>
+  </div>
+</div>
+
+<div data-room="ff0000">
+  <div class="navhelp-terminal">
+    <div class="navhelp-header">
+      <p class="navhelp-kicker">Navigation</p>
+      <h3>Station Guide</h3>
+    </div>
+
+    <div class="navhelp-tip-tabs" id="navhelp-tip-tabs"></div>
+    <div id="navhelp-tip-content" class="navhelp-tip-content"></div>
+
+    <section class="navhelp-panel">
+      <h4>Support Status</h4>
+      <div id="nav-support-list" class="navhelp-list"></div>
+    </section>
+  </div>
+</div>
+
+<div data-room="ffff00">
+  <div class="shields-terminal">
+    <div class="shields-header">
+      <div>
+        <p class="shields-kicker">Shields Console</p>
+        <h3>Privacy and Protection</h3>
+      </div>
+      <div class="shields-score">
+        <span id="shields-score-value">86%</span>
+        <small>Shield Rating</small>
+      </div>
+    </div>
+
+    <div class="shields-layout">
+      <section class="shields-panel">
+        <h4>Privacy Matrix</h4>
+        <div class="shields-form">
+          <label for="shield-privacy">Privacy Mode</label>
+          <select id="shield-privacy" class="navhelp-select" onchange="updateShieldPrivacySummary()">
+            <option value="Enabled" selected>Enabled</option>
+            <option value="Friends Only">Friends Only</option>
+            <option value="Public">Public</option>
+          </select>
+          <label for="shield-dm">DM Permissions</label>
+          <select id="shield-dm" class="navhelp-select" onchange="updateShieldPrivacySummary()">
+            <option value="Crewmates Only" selected>Crewmates Only</option>
+            <option value="Followers">Followers</option>
+            <option value="Everyone">Everyone</option>
+          </select>
+          <label for="shield-filter">Content Filter</label>
+          <select id="shield-filter" class="navhelp-select" onchange="updateShieldPrivacySummary()">
+            <option value="Strict">Strict</option>
+            <option value="Standard" selected>Standard</option>
+            <option value="Relaxed">Relaxed</option>
+          </select>
+          <p id="shield-privacy-summary" class="shields-meta">Enabled | Crewmates Only | Standard</p>
+        </div>
+      </section>
+
+      <section class="shields-panel">
+        <h4>Visibility Controls</h4>
+        <div class="shields-toggle-list">
+          <label class="shields-toggle-row"><input type="checkbox" id="shield-online-toggle" checked onchange="updateShieldPrivacySummary()"> Show Online Presence</label>
+          <label class="shields-toggle-row"><input type="checkbox" id="shield-activity-toggle" checked onchange="updateShieldPrivacySummary()"> Share Zone Activity</label>
+          <label class="shields-toggle-row"><input type="checkbox" id="shield-alert-toggle" checked onchange="updateShieldPrivacySummary()"> Critical Alerts</label>
+        </div>
+        <p id="shield-visibility-summary" class="shields-meta">Presence on | Activity shared | Alerts on</p>
+      </section>
+    </div>
+
+    <div class="shields-layout">
+      <section class="shields-panel">
+        <h4>Block Controls</h4>
+        <div class="shields-form">
+          <input id="shield-block-user-input" class="dynamic-input" type="text" placeholder="Crew name to block or unblock">
+          <div class="navhelp-actions">
+            <button class="dynamic-btn" type="button" onclick="blockUserFromShields()">Block</button>
+            <button class="dynamic-btn" type="button" onclick="unblockUserFromShields()">Unblock</button>
+          </div>
+        </div>
+        <div id="shield-blocked-users-list" class="shields-list"></div>
+      </section>
+
+      <section class="shields-panel">
+        <h4>Protection Audit</h4>
+        <div id="shield-audit-list" class="shields-list"></div>
+      </section>
+    </div>
+  </div>
+</div>
+
+<div data-room="00ffff">
+  <div class="comm-terminal">
+    <div class="comm-header">
+      <div>
+        <p class="comm-kicker">Communications</p>
+        <h3>DMs and Alerts</h3>
+      </div>
+    </div>
+    <div class="comm-layout">
+      <section class="comm-panel">
+        <h4>Direct Messages</h4>
+        <div id="comm-dm-list" class="comm-dm-list"></div>
+      </section>
+      <section class="comm-panel">
+        <h4>Thread</h4>
+        <p id="comm-thread-meta" class="cafeteria-meta">Select a DM thread to view messages.</p>
+        <div id="comm-thread-view" class="comm-thread-view">
+          <p>No thread selected.</p>
+        </div>
+        <div class="comm-compose">
+          <label for="comm-compose-input">Quick Reply</label>
+          <textarea id="comm-compose-input" class="dynamic-input" style="height:64px;" placeholder="Write a reply (local demo only)..."></textarea>
+          <button class="dynamic-btn" type="button" onclick="addCommReply()">Send Reply</button>
+        </div>
+      </section>
+    </div>
+    <section class="comm-panel">
+      <h4>Alerts</h4>
+      <div id="comm-alert-list" class="comm-alert-list"></div>
+    </section>
+  </div>
+</div>
+
+<div data-room="efa9fa">
+  <p>Cargo Bay Inventory Logs:</p>
+  <div class="dynamic-card">Hydraulic Crane Status: Idle</div>
+  <div class="dynamic-card" style="margin-top:6px;">Reserve Ration Vaults: Secure (100%)</div>
+</div>
+
+<div data-room="636b2f">
+  <div class="admin-terminal">
+    <div class="admin-header">
+      <div>
+        <p class="admin-kicker">Admin Console</p>
+        <h3>Crew Profile Settings</h3>
+      </div>
+      <div class="admin-identity-pill">
+        <span id="admin-avatar-chip" class="admin-avatar-chip">C</span>
+        <span id="admin-profile-name">Crewmate</span>
+      </div>
+    </div>
+
+    <div class="admin-layout">
+      <section class="admin-panel">
+        <h4>Suit Colour</h4>
+        <p id="admin-color-summary" class="admin-meta">Current: Cyan</p>
+        <div class="color-btn-grid admin-color-grid">
+          <button class="color-picker-btn" data-color-index="0" style="background: #00ffff; color: #1d2a3b;" onclick="setAdminCrewmateColor(0)">Cyan</button>
+          <button class="color-picker-btn" data-color-index="1" style="background: #ef3340;" onclick="setAdminCrewmateColor(1)">Red</button>
+          <button class="color-picker-btn" data-color-index="2" style="background: #1d3557;" onclick="setAdminCrewmateColor(2)">Blue</button>
+          <button class="color-picker-btn" data-color-index="3" style="background: #8338ec;" onclick="setAdminCrewmateColor(3)">Purple</button>
+          <button class="color-picker-btn" data-color-index="4" style="background: #704214;" onclick="setAdminCrewmateColor(4)">Brown</button>
+          <button class="color-picker-btn" data-color-index="5" style="background: #6c757d;" onclick="setAdminCrewmateColor(5)">Grey</button>
+          <button class="color-picker-btn" data-color-index="6" style="background: #ffc0cb; color: #1d2a3b;" onclick="setAdminCrewmateColor(6)">Pink</button>
+        </div>
+      </section>
+
+      <section class="admin-panel">
+        <h4>Profile Basics</h4>
+        <div class="admin-form">
+          <label for="admin-display-name">Display Name</label>
+          <input id="admin-display-name" class="dynamic-input" type="text" maxlength="18" placeholder="Crewmate">
+          <label for="admin-status-select">Status</label>
+          <select id="admin-status-select" class="navhelp-select" onchange="updateAdminProfilePreview()">
+            <option value="On Duty" selected>On Duty</option>
+            <option value="Exploring">Exploring</option>
+            <option value="Do Not Disturb">Do Not Disturb</option>
+            <option value="Away">Away</option>
+          </select>
+          <button class="dynamic-btn" type="button" onclick="saveAdminProfileSettings()">Save Profile</button>
+          <p id="admin-save-status" class="admin-meta">Changes are local to this session.</p>
+        </div>
+      </section>
+    </div>
+
+    <div class="admin-layout">
+      <section class="admin-panel">
+        <h4>Crew Preferences</h4>
+        <div class="admin-toggle-list">
+          <label for="admin-home-zone">Home Zone</label>
+          <select id="admin-home-zone" class="navhelp-select" onchange="updateAdminPreferencesSummary()">
+            <option value="Cafeteria" selected>Cafeteria</option>
+            <option value="Admin">Admin</option>
+            <option value="Communications">Communications</option>
+            <option value="Navigation">Navigation</option>
+          </select>
+          <label class="admin-toggle-row"><input type="checkbox" id="admin-compact-toggle" onchange="updateAdminPreferencesSummary()"> Compact Tablet Layout</label>
+          <label class="admin-toggle-row"><input type="checkbox" id="admin-motion-toggle" checked onchange="updateAdminPreferencesSummary()"> Terminal Animations</label>
+        </div>
+        <p id="admin-preferences-summary" class="admin-meta">Home: Cafeteria | Standard layout | Animations on</p>
+      </section>
+
+      <section class="admin-panel">
+        <h4>Profile Checklist</h4>
+        <div id="admin-checklist" class="admin-checklist"></div>
+      </section>
+    </div>
+  </div>
+</div>

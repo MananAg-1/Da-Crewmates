@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Da-Crewmates - Slayyyyy Wesbsite</title>
+  <!--I am not responsible for any kind of Slayy references in the code-->
+  <link rel="stylesheet" href="Styles.css">
+  <script>
+    (function () {
+      try {
+        const params = new URLSearchParams(window.location.search);
+        if (params.get("authed") === "1") {
+          document.documentElement.classList.add("authed-embed");
+        }
+      } catch (e) {}
+    })();
+  </script>
+  <style>
+    html.authed-embed #landing-view {
+      display: none !important;
+      opacity: 0 !important;
+      pointer-events: none !important;
+    }
+    html.authed-embed #app-view {
+      opacity: 1 !important;
+      pointer-events: auto !important;
+      transform: none !important;
+    }
+  </style>
+<!-- Ye toh bhul hi gaya -->
+</head>
+<body>
+<div class="space-background">
+  <!-- This is basically the part jo stars dikhata hai-->
+    <div class="stars-layer-slow"></div>
+    <div class="stars-layer-medium"></div>
+    <div class="stars-layer-fast"></div>
+  </div>
+  
+<div class="view-screen" id="landing-view">
+  <!-- THIS is what has to be fixed. The landing page is not so cool-->
+    <div class="tw-overlay">
+      <div class="tw-tablet">
+        <div class="tw-hand left"><span class="tw-palm"></span><span class="tw-thumb"></span></div>
+        <div class="tw-hand right"><span class="tw-palm"></span><span class="tw-thumb"></span></div>
+        <div class="tw-frame">
+          <div class="tw-grip left"></div>
+          <div class="tw-grip right"></div>
+          <div class="tw-screen">
+              <!-- Ye hai tablet ka content-->
+            <div class="tw-scan"></div>
+            <div class="tw-screen-content" style="text-align: center;">
+              <div class="tw-header" style="justify-content: center; margin-bottom: 22px; color: #7f1d1d;">
+                <span>SYSTEM INITIALIZED</span>
+              </div>
+              <p style="font-size: 18px; color: #1d2a3b; margin-bottom: 32px; text-transform: uppercase; letter-spacing: 1px; font-weight: bold; font-family: Arial, sans-serif;">
+                Welcome to Skeld Station Social Network Cluster.<br>ENGAGE LINK CORE FOR ENTRY. <!--Slayyyy haina ye line?-->
+              </p>
+              <button class="enter-btn" onclick="enterPlatform()">Enter Station</button> <!--PLEASE WHY ISNT THIS FKIN WORKING-->
+            </div>
+          </div>
+        </div>
+        <div class="tw-dock"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="view-screen hidden" id="app-view">
+    <!--Navigateeeee-->
+    <div id="hud-map-toggle" onclick="openNavigationHUD()"></div>
+    <div id="hud-user-toggle" onclick="toggleUserPanel()"><span id="hud-user-initial">U</span></div>
+    <div id="hud-user-panel">
+      <p id="hud-user-name">Crewmate</p>
+      <button type="button" onclick="requestLogoutToParent()">Log Out</button>
+    </div>
+    
+    <div id="game-container">
+      <div id="map-wrapper">
+        <img src="Assets/Map.png" id="game-map" alt="Space Station Map"> <!--Main map banake daalra hun abhi dw-->
+      </div>
+      <div class="crewmate-walk" id="player"></div>
+    </div>
+  </div>
+
+    <div id="zone-prompt">Press [F] to open <span id="prompt-action-text"></span></div> <!--PRESS F TO PAY RESPECT FFFFFFFFF-->
+
+  <div class="view-screen hidden" id="navigation-hud-overlay">
+    <div class="tw-backdrop" onclick="closeNavigationHUD()"></div>
+    <div class="nav-container-card">
+      <div class="nav-header-row">
+        <div class="nav-title-lbl">STATION QUICK TERMINAL NAVIGATION Matrix</div> <!--Matrix HAHA LMAO-->
+        <button class="tw-close" type="button" onclick="closeNavigationHUD()">X</button>
+      </div>
+      <div class="nav-map-canvas-wrapper" onclick="handleNavMapClick(event)">
+        <img src="Assets/Navigate.png" class="nav-render-img" id="nav-base-img" alt="Navigation Map overlay"> <!-- I WORKED HARD FOR THIS, OK?-->
+      </div>
+    </div>
+  </div>
+
+    <div class="view-screen hidden" id="terminal-overlay" style="z-index: 110;">
+    <div class="tw-overlay">
+      <div class="tw-backdrop" onclick="closeTerminal()"></div>
+      <div class="tw-tablet">
+        <div class="tw-hand left"><span class="tw-palm"></span><span class="tw-thumb"></span></div>
+        <div class="tw-hand right"><span class="tw-palm"></span><span class="tw-thumb"></span></div>
+
+        <div class="tw-frame">
+          <div class="tw-grip left"></div>
+          <div class="tw-grip right"></div>
+          <div class="tw-screen">
+            <div class="tw-scan"></div>
+            <div class="tw-screen-content">
+              <div class="tw-header">
+                <span id="terminal-title">Terminal</span> <!-- Make sure ki ye function is defined please-->
+                <button class="tw-close" type="button" onclick="closeTerminal()">X</button>
+              </div>
+              <div class="tablet-page-container" id="terminal-body"></div>
+            </div>
+          </div>
+        </div>
+        <div class="tw-dock"></div>
+      </div>
+    </div>
+  </div> <!-- I hope koi DIV na chutta ho, laptop pe toh chalra tha I think-->
+
+<!-- Give me 15 minutes for CSS, bass bangayi hai. I just need to find the perfect combination for the stars, then I'll upload + JS bhi almost hogyi hai-->
+   <canvas id="collision-canvas"></canvas>
+  <canvas id="zoning-canvas"></canvas>
+  <canvas id="nav-zoning-canvas"></canvas>
+<script src="Main.js"></script>
+<!-- Excitement mein ye bhi bhul gaya. CAN YOU PLEASE MUTE YOUR MIC, TANVEER BHAIYYA -->
+  
+</body>
+</html>
