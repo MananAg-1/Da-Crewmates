@@ -39,7 +39,7 @@ export default function App() {
     <main className="appShell">
       <iframe
         title="Da Crewmates Game"
-        src={`/game/index.html?authed=1&crew=${encodeURIComponent(user.displayName || user.email || "Crewmate")}`}
+        src={`/game/index.html?authed=1&crew=${encodeURIComponent(user.displayName || user.email || "Crewmate")}&user=${encodeURIComponent(user.id)}`}
         className="gameEmbedFrame"
       />
     </main>

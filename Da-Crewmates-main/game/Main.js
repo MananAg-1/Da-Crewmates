@@ -1,4 +1,4 @@
-﻿//Ts easy AF
+//Ts easy AF
 const zoomLevel = 0.5; 
 
     const landingView = document.getElementById('landing-view');
@@ -28,6 +28,10 @@ let worldWidth = 0;
     let worldHeight = 0; 
     let worldX = 0; 
     let worldY = 0; 
+
+    let currentCameraX = null;
+    let currentCameraY = null;
+    const lerpFactor = 0.08; // Smooth camera damping factor (smaller = smoother, larger = faster) 
     
     const speed = 8;
     let isSystemActive = false;
@@ -46,6 +50,8 @@ let worldWidth = 0;
     const queryParams = new URLSearchParams(window.location.search);
     const autoAuthBypass = queryParams.get("authed") === "1";
     const authedCrewName = queryParams.get("crew") || "Crewmate";
+    const fallbackCrewId = `guest-${authedCrewName.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "") || "crewmate"}`;
+    const authedCrewId = queryParams.get("user") || fallbackCrewId;
 
     const spawnPoints = {
       "ffa420": { x: 0, y: 0, name: "Default Spawn" },
@@ -154,14 +160,17 @@ const terminalContentRegistry = {
         scanMapForSpawnCoordinates();
         worldX = spawnPoints["ffa420"].x || worldWidth / 2;
         worldY = spawnPoints["ffa420"].y || worldHeight / 2;
+        enterPlatform();
       }
     }
 
     function enterPlatform() {
-      landingView.classList.add('hidden');
+      if (landingView) landingView.classList.add('hidden');
       appView.classList.remove('hidden');
-      isSystemActive = true;
-      requestAnimationFrame(gameLoop);
+      if (!isSystemActive) {
+        isSystemActive = true;
+        requestAnimationFrame(gameLoop);
+      }
     }
 
     function scanMapForSpawnCoordinates() {
@@ -297,6 +306,9 @@ const terminalContentRegistry = {
         standingZoneHexKey = hexKey;
         activeCurrentZone = targetZone;
 
+        // Force snap the internal camera tracking coordinates to sync with the CSS warp transition
+        currentCameraX = (window.innerWidth / 2) - (worldX * zoomLevel);
+        currentCameraY = (window.innerHeight / 2) - (worldY * zoomLevel);
         updateCameraPosition();
 
         setTimeout(() => {
@@ -316,9 +328,18 @@ const terminalContentRegistry = {
     }
 
     function updateCameraPosition() {
-      const offsetX = (window.innerWidth / 2) - (worldX * zoomLevel);
-      const offsetY = (window.innerHeight / 2) - (worldY * zoomLevel);
-      mapWrapper.style.transform = `translate(${offsetX}px, ${offsetY}px) scale(${zoomLevel})`;
+      const targetOffsetX = (window.innerWidth / 2) - (worldX * zoomLevel);
+      const targetOffsetY = (window.innerHeight / 2) - (worldY * zoomLevel);
+
+      if (currentCameraX === null || currentCameraY === null) {
+        currentCameraX = targetOffsetX;
+        currentCameraY = targetOffsetY;
+      } else {
+        currentCameraX += (targetOffsetX - currentCameraX) * lerpFactor;
+        currentCameraY += (targetOffsetY - currentCameraY) * lerpFactor;
+      }
+
+      mapWrapper.style.transform = `translate(${currentCameraX}px, ${currentCameraY}px) scale(${zoomLevel})`;
     }
 
 
@@ -364,10 +385,16 @@ const terminalContentRegistry = {
       if (hexKey === "8f8b66") {
         initCafeteriaBoard();
         loadCafeteriaApod();
+      } else if (hexKey === "efa94a") {
+        initElectricalHub();
+      } else if (hexKey === "00ff00") {
+        initO2Hub();
+      } else if (hexKey === "0000ff") {
+        initWeaponsHub();
       } else if (hexKey === "755c48") {
         initMedbayAnalytics();
       } else if (hexKey === "00ffff") {
-        initCommunicationsHub();
+        initFriendsHub();
       } else if (hexKey === "ff0000") {
         initNavigationHelpHub();
       } else if (hexKey === "ffff00") {
@@ -377,7 +404,9 @@ const terminalContentRegistry = {
       } else if (hexKey === "641c34") {
         initReactorHub();
       } else if (hexKey === "ffa420") {
-        initSecurityHub();
+        initSecurityHubBackend();
+      } else if (hexKey === "efa9fa") {
+        initStorageHub();
       }
 
       appView.classList.add('blur-gameplay');
@@ -462,6 +491,7 @@ function toggleUserPanel() {
 }
 
 function requestLogoutToParent() {
+  endCurrentSession();
   try {
     window.parent.postMessage({ type: "dc_logout" }, "*");
   } catch (e) {}
@@ -477,71 +507,563 @@ function closeInnerOverlay() {
     .classList.remove("active");
 }
 
-const cafeteriaState = {
-  selectedPostId: null,
-  posts: [],
-  visibleCount: 3,
-  carouselStart: 0
-};
-
-function initCafeteriaBoard() {
-  cafeteriaState.posts = [
+const postStore = {
+  nextId: 300,
+  backendReady: false,
+  isLoading: false,
+  posts: [
     {
       id: 1,
       tag: "Space",
       title: "Which planetary mission gave the biggest science return in the last decade?",
-      detail: "Consider mission duration, instrument quality, open data access, and how much each mission changed classroom-level understanding of planets and moons.",
-      likes: 1242,
-      comments: ["Anon: Cassini transformed Saturn science across multiple fields.", "Anon: Juno data reshaped our understanding of Jupiter's interior."]
+      body: "Consider mission duration, instrument quality, open data access, and how much each mission changed classroom-level understanding of planets and moons.",
+      authorId: "crew-system",
+      createdAt: "2026-05-29T10:00:00.000Z",
+      upvotes: 1242,
+      downvotes: 28,
+      comments: ["Anon: Cassini transformed Saturn science across multiple fields.", "Anon: Juno data reshaped our understanding of Jupiter's interior."],
+      savedByMe: true,
+      seenByMe: false
     },
     {
       id: 2,
       tag: "Space",
       title: "What is one space fact that sounds impossible but is well established?",
-      detail: "Share one verified observation and include a short explanation for why it happens physically, so new readers can follow without deep math.",
-      likes: 987,
-      comments: ["Anon: A day on Venus is longer than its year due to slow retrograde rotation.", "Anon: Time dilation from gravity is measurable with atomic clocks."]
+      body: "Share one verified observation and include a short explanation for why it happens physically, so new readers can follow without deep math.",
+      authorId: "crew-system",
+      createdAt: "2026-05-29T09:00:00.000Z",
+      upvotes: 987,
+      downvotes: 39,
+      comments: ["Anon: A day on Venus is longer than its year due to slow retrograde rotation.", "Anon: Time dilation from gravity is measurable with atomic clocks."],
+      savedByMe: false,
+      seenByMe: false
     },
     {
       id: 3,
       tag: "Space",
       title: "Which unresolved question in astronomy should get priority funding?",
-      detail: "Pick one major open problem and argue from impact: dark matter, early galaxy formation, exoplanet atmospheres, or something else.",
-      likes: 763,
-      comments: ["Anon: Exoplanet atmosphere chemistry could change the search for life.", "Anon: Dark matter constraints still affect almost every cosmology model."]
+      body: "Pick one major open problem and argue from impact: dark matter, early galaxy formation, exoplanet atmospheres, or something else.",
+      authorId: "crew-system",
+      createdAt: "2026-05-29T08:00:00.000Z",
+      upvotes: 1089,
+      downvotes: 87,
+      comments: ["Anon: Exoplanet atmosphere chemistry could change the search for life.", "Anon: Dark matter constraints still affect almost every cosmology model."],
+      savedByMe: true,
+      seenByMe: false
     },
     {
       id: 4,
       tag: "Space",
       title: "How should we balance human spaceflight vs robotic exploration budgets?",
-      detail: "Discuss scientific output, risk, public engagement, and long-term infrastructure. Try comparing mission classes instead of absolute yes/no positions.",
-      likes: 541,
-      comments: ["Anon: Robots are higher cadence science tools for the same cost band.", "Anon: Human missions accelerate systems engineering breakthroughs."]
+      body: "Discuss scientific output, risk, public engagement, and long-term infrastructure. Try comparing mission classes instead of absolute yes/no positions.",
+      authorId: "crew-system",
+      createdAt: "2026-05-28T14:00:00.000Z",
+      upvotes: 734,
+      downvotes: 291,
+      comments: ["Anon: Robots are higher cadence science tools for the same cost band.", "Anon: Human missions accelerate systems engineering breakthroughs."],
+      savedByMe: false,
+      seenByMe: false
     },
     {
       id: 5,
       tag: "Space",
       title: "What are the biggest technical blockers for long-duration lunar habitats?",
-      detail: "Focus on radiation shielding, dust mitigation, closed-loop life support, and maintenance logistics in low-gravity environments.",
-      likes: 428,
-      comments: ["Anon: Lunar regolith dust control is underestimated in many public discussions.", "Anon: Reliable water recycling and redundancy will be mission critical."]
+      body: "Focus on radiation shielding, dust mitigation, closed-loop life support, and maintenance logistics in low-gravity environments.",
+      authorId: "crew-system",
+      createdAt: "2026-05-28T12:00:00.000Z",
+      upvotes: 428,
+      downvotes: 18,
+      comments: ["Anon: Lunar regolith dust control is underestimated in many public discussions.", "Anon: Reliable water recycling and redundancy will be mission critical."],
+      savedByMe: false,
+      seenByMe: false
     },
     {
       id: 6,
       tag: "Space",
       title: "Which telescope era do you think will define the next 20 years?",
-      detail: "Compare near-term impact of JWST follow-ups, Roman Space Telescope surveys, and upcoming ground observatories in multi-messenger astronomy.",
-      likes: 312,
-      comments: ["Anon: Roman's wide-field surveys could unlock major cosmology insights.", "Anon: Ground-based spectroscopy will remain essential for interpretation."]
+      body: "Compare near-term impact of JWST follow-ups, Roman Space Telescope surveys, and upcoming ground observatories in multi-messenger astronomy.",
+      authorId: "crew-system",
+      createdAt: "2026-05-27T15:30:00.000Z",
+      upvotes: 541,
+      downvotes: 44,
+      comments: ["Anon: Roman's wide-field surveys could unlock major cosmology insights.", "Anon: Ground-based spectroscopy will remain essential for interpretation."],
+      savedByMe: false,
+      seenByMe: false
+    },
+    {
+      id: 101,
+      tag: "Science",
+      title: "What is the actual resolution of the human eye?",
+      body: "Framed differently: if the eye were a camera sensor, how many megapixels would it have, and what are the constraints that make this question tricky to answer cleanly?",
+      authorId: "crew-system",
+      createdAt: "2026-05-30T08:20:00.000Z",
+      upvotes: 812,
+      downvotes: 36,
+      comments: new Array(14).fill("Crew note"),
+      savedByMe: false,
+      seenByMe: false
+    },
+    {
+      id: 102,
+      tag: "Tech",
+      title: "Is local-first software a viable answer to cloud lock-in?",
+      body: "Break down the tradeoffs: offline capability, sync complexity, and the business model problem that makes local-first hard to sustain commercially.",
+      authorId: "crew-system",
+      createdAt: "2026-05-30T07:40:00.000Z",
+      upvotes: 876,
+      downvotes: 412,
+      comments: new Array(61).fill("Crew note"),
+      savedByMe: false,
+      seenByMe: false
+    },
+    {
+      id: 103,
+      tag: "Discussion",
+      title: "Which piece of infrastructure do you think is most underappreciated?",
+      body: "Think beyond roads and power: container shipping, undersea cables, sewage systems, or something less obvious. What would collapse first if it failed?",
+      authorId: "crew-system",
+      createdAt: "2026-05-30T06:50:00.000Z",
+      upvotes: 578,
+      downvotes: 24,
+      comments: new Array(22).fill("Crew note"),
+      savedByMe: false,
+      seenByMe: false
+    },
+    {
+      id: 104,
+      tag: "Space",
+      title: "How do orbital debris removal missions actually work in practice?",
+      body: "Explain the capture mechanisms being tested, the legal questions around touching another country's satellite debris, and the timescale problem.",
+      authorId: "crew-system",
+      createdAt: "2026-05-30T06:10:00.000Z",
+      upvotes: 491,
+      downvotes: 11,
+      comments: new Array(7).fill("Crew note"),
+      savedByMe: false,
+      seenByMe: false
+    },
+    {
+      id: 105,
+      tag: "Science",
+      title: "Why does muscle memory feel different from learned knowledge?",
+      body: "Dig into procedural vs declarative memory, the cerebellum's role, and why you can still ride a bike after decades but forget a phone number overnight.",
+      authorId: "crew-system",
+      createdAt: "2026-05-30T05:30:00.000Z",
+      upvotes: 403,
+      downvotes: 9,
+      comments: new Array(11).fill("Crew note"),
+      savedByMe: false,
+      seenByMe: false
+    },
+    {
+      id: 106,
+      tag: "Tech",
+      title: "What makes type systems actually useful versus just overhead?",
+      body: "Compare dynamic and static typing in real production contexts: where types catch bugs versus where they just move the friction.",
+      authorId: "crew-system",
+      createdAt: "2026-05-30T04:45:00.000Z",
+      upvotes: 612,
+      downvotes: 603,
+      comments: new Array(79).fill("Crew note"),
+      savedByMe: false,
+      seenByMe: false
     }
-  ];
+  ]
+};
 
-  cafeteriaState.posts.sort((a, b) => b.likes - a.likes);
-  cafeteriaState.visibleCount = 3;
-  cafeteriaState.carouselStart = 0;
-  cafeteriaState.selectedPostId = cafeteriaState.posts[0].id;
+const API_BASE = (queryParams.get("api") || window.DC_API_BASE || "http://localhost:4000").replace(/\/$/, "");
+const CURRENT_USER_ID = authedCrewId;
+const realtimeState = {
+  source: null,
+  connected: false
+};
+const sessionState = {
+  session: null,
+  objectives: [],
+  streak: 0
+};
+
+async function apiRequest(path, options = {}) {
+  const response = await fetch(`${API_BASE}${path}`, {
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      "x-user-id": CURRENT_USER_ID,
+      "x-display-name": authedCrewName,
+      ...(options.headers || {})
+    }
+  });
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok) throw new Error(data.error || "API request failed");
+  return data;
+}
+
+function escapeHtml(value) {
+  return String(value || "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
+function startRealtimeStream() {
+  if (!("EventSource" in window) || realtimeState.source) return;
+  const source = new EventSource(`${API_BASE}/api/realtime?user=${encodeURIComponent(CURRENT_USER_ID)}`);
+  realtimeState.source = source;
+  source.onmessage = (event) => {
+    try {
+      handleRealtimeEvent(JSON.parse(event.data));
+    } catch (error) {
+      console.warn("Realtime event parse failed:", error.message);
+    }
+  };
+  source.onerror = () => {
+    realtimeState.connected = false;
+    updateRealtimeBadges();
+  };
+}
+
+function handleRealtimeEvent(message) {
+  if (!message || !message.type) return;
+  realtimeState.connected = message.type === "connected" ? true : realtimeState.connected;
+  const payload = message.payload || {};
+
+  if (message.type === "post_created" && payload.post) {
+    const post = normalizePost(payload.post);
+    if (!getPostById(post.id)) postStore.posts.unshift(post);
+    refreshPostViews();
+  } else if (message.type === "post_deleted" && payload.postId) {
+    deletePostFromStore(payload.postId);
+    refreshPostViews();
+  } else if (message.type === "vote_changed" && payload.postId) {
+    const post = getPostById(payload.postId);
+    if (post) {
+      post.upvotes = payload.upvotes;
+      post.downvotes = payload.downvotes;
+      refreshPostViews();
+    }
+  } else if (message.type === "comment_created" && payload.postId) {
+    const post = getPostById(payload.postId);
+    if (post) {
+      post.commentCount = getPostCommentCount(post) + 1;
+      post.commentsLoaded = false;
+      refreshPostViews();
+    }
+  } else if (message.type.startsWith("friend_")) {
+    if (document.getElementById("friends-list-container")) loadFriendsHub();
+  } else if (message.type === "dm_message_created") {
+    if (document.getElementById("friends-list-container")) loadDmThreads();
+  } else if (message.type === "objective_updated") {
+    loadSessionState();
+  }
+
+  updateRealtimeBadges();
+}
+
+function updateRealtimeBadges() {
+  document.querySelectorAll("[data-realtime-badge]").forEach((badge) => {
+    badge.textContent = realtimeState.connected ? "Live" : "Offline";
+    badge.classList.toggle("offline", !realtimeState.connected);
+  });
+}
+
+async function loadSessionState() {
+  try {
+    const data = await apiRequest("/api/session/active");
+    if (!data.objectives || data.objectives.length === 0) {
+      Object.assign(sessionState, await apiRequest("/api/session/start", { method: "POST" }));
+    } else {
+      Object.assign(sessionState, data);
+    }
+    renderObjectivePanel();
+  } catch (error) {
+    console.warn("Session objective sync failed:", error.message);
+  }
+}
+
+function getObjectiveProgress() {
+  const total = sessionState.objectives.length;
+  const done = sessionState.objectives.filter((objective) => objective.completed).length;
+  return { done, total };
+}
+
+function renderObjectivePanel() {
+  const list = document.getElementById("daily-objective-list");
+  const summary = document.getElementById("daily-objective-summary");
+  if (!list || !summary) return;
+  const progress = getObjectiveProgress();
+  summary.textContent = `${progress.done}/${progress.total} complete | ${sessionState.streak || 0} day streak`;
+  list.innerHTML = sessionState.objectives.map((objective) => {
+    const current = Math.min(objective.current_count, objective.target_count);
+    return `
+      <div class="objective-item ${objective.completed ? "done" : ""}">
+        <span class="state-badge">${objective.completed ? "Done" : `${current}/${objective.target_count}`}</span>
+        <p>${objective.title}</p>
+      </div>
+    `;
+  }).join("");
+}
+
+async function endCurrentSession() {
+  await loadSessionState();
+  const progress = getObjectiveProgress();
+  if (progress.total && progress.done < progress.total) {
+    const proceed = window.confirm(`Daily Objectives: ${progress.done}/${progress.total} complete. End session anyway?`);
+    if (!proceed) return;
+  }
+  try {
+    await apiRequest("/api/session/end", { method: "POST" });
+    await loadSessionState();
+  } catch (error) {
+    console.warn("Session end failed:", error.message);
+  }
+}
+
+function normalizePost(rawPost) {
+  const comments = Array.isArray(rawPost.comments) ? rawPost.comments : [];
+  return {
+    id: rawPost.id || postStore.nextId++,
+    tag: rawPost.tag || "Space",
+    title: rawPost.title || "(Untitled transmission)",
+    body: rawPost.body || rawPost.detail || "",
+    authorId: rawPost.authorId || "crew-local",
+    authorName: rawPost.authorName || rawPost.authorId || "Crewmate",
+    createdAt: rawPost.createdAt || new Date().toISOString(),
+    upvotes: rawPost.upvotes || rawPost.likes || 0,
+    downvotes: rawPost.downvotes || 0,
+    comments,
+    commentCount: Number.isFinite(rawPost.commentCount) ? rawPost.commentCount : comments.length,
+    commentsLoaded: Array.isArray(rawPost.comments),
+    savedByMe: Boolean(rawPost.savedByMe),
+    seenByMe: Boolean(rawPost.seenByMe),
+    canDelete: Boolean(rawPost.canDelete)
+  };
+}
+
+function normalizePostsResponse(data) {
+  return Array.isArray(data.posts) ? data.posts : [];
+}
+
+function replacePostsFromBackend(posts) {
+  if (!Array.isArray(posts)) return;
+  postStore.posts = posts.map(normalizePost);
+  postStore.backendReady = true;
+  cafeteriaState.shuffleOrder = null;
+  if (!getPostById(cafeteriaState.selectedPostId)) cafeteriaState.selectedPostId = postStore.posts[0]?.id || null;
+  if (!getPostById(o2State.selectedPostId)) o2State.selectedPostId = null;
+  if (!getPostById(weaponsState.selectedPostId)) weaponsState.selectedPostId = null;
+  if (!getPostById(storageState.selectedPostId)) storageState.selectedPostId = null;
+  refreshPostViews();
+}
+
+async function loadPostsFromBackend() {
+  if (postStore.isLoading) return;
+  postStore.isLoading = true;
+  try {
+    const data = await apiRequest("/api/posts?feed=new&limit=100");
+    replacePostsFromBackend(data.posts);
+  } catch (error) {
+    console.warn("Using local placeholder posts:", error.message);
+  } finally {
+    postStore.isLoading = false;
+  }
+}
+
+async function loadPostsForFeed(feed, extraParams = {}) {
+  const params = new URLSearchParams({ feed, limit: "100" });
+  Object.entries(extraParams).forEach(([key, value]) => {
+    if (value !== undefined && value !== null && value !== "") params.set(key, value);
+  });
+  const data = await apiRequest(`/api/posts?${params}`);
+  replacePostsFromBackend(normalizePostsResponse(data));
+}
+
+startRealtimeStream();
+loadSessionState();
+
+function refreshPostViews() {
   renderCafeteriaFeed();
   renderCafeteriaDetail();
+  renderO2Feed();
+  renderO2Detail();
+  updateO2UnseenCount();
+  renderWeaponsFeed();
+  renderWeaponsDetail();
+  renderStorageSavedList();
+  renderStorageDetail();
+  updateStorageSavedCount();
+}
+
+function getAllPosts() {
+  return postStore.posts;
+}
+
+function getPostById(postId) {
+  return postStore.posts.find(post => post.id === postId) || null;
+}
+
+function getPostCommentCount(post) {
+  return Number.isFinite(post.commentCount) ? post.commentCount : (Array.isArray(post.comments) ? post.comments.length : 0);
+}
+
+function getPostScore(post) {
+  return post.upvotes;
+}
+
+function getPostScoreLabel(post) {
+  const score = getPostScore(post);
+  return `${score} like${Math.abs(score) === 1 ? "" : "s"}`;
+}
+
+function createPost(rawPost) {
+  const post = normalizePost(rawPost);
+  postStore.posts.unshift(post);
+  return post;
+}
+
+async function createPostOnBackend(rawPost) {
+  const data = await apiRequest("/api/posts", {
+    method: "POST",
+    body: JSON.stringify({
+      title: rawPost.title,
+      body: rawPost.body,
+      tag: rawPost.tag,
+      roomId: rawPost.roomId || "electrical"
+    })
+  });
+  return normalizePost(data.post);
+}
+
+function loadCommentsForPost(postId) {
+  const post = getPostById(postId);
+  if (!post || post.commentsLoaded) return;
+  apiRequest(`/api/posts/${encodeURIComponent(postId)}/comments`)
+    .then(data => {
+      const currentPost = getPostById(postId);
+      if (!currentPost || !Array.isArray(data.comments)) return;
+      currentPost.comments = data.comments.map(comment => `${comment.authorName}: ${comment.content}`);
+      currentPost.commentCount = currentPost.comments.length;
+      currentPost.commentsLoaded = true;
+      renderCafeteriaDetail();
+    })
+    .catch(error => console.warn("Comment load failed:", error.message));
+}
+
+function voteOnPost(postId, direction) {
+  const post = getPostById(postId);
+  if (!post) return null;
+  if (direction === "up") post.upvotes++;
+  else {
+    post.downvotes++;
+    post.upvotes--;
+  }
+  return post;
+}
+
+function syncVoteToBackend(postId, direction) {
+  apiRequest(`/api/posts/${encodeURIComponent(postId)}/vote`, {
+    method: "POST",
+    body: JSON.stringify({ type: direction })
+  }).then(data => {
+    const post = getPostById(postId);
+    if (!post) return;
+    post.upvotes = data.upvotes;
+    post.downvotes = data.downvotes;
+    refreshPostViews();
+  }).catch(error => console.warn("Vote sync failed:", error.message));
+}
+
+function deletePostFromStore(postId) {
+  postStore.posts = postStore.posts.filter(post => post.id !== postId);
+  cafeteriaState.shuffleOrder = null;
+  if (cafeteriaState.selectedPostId === postId) cafeteriaState.selectedPostId = getCafeteriaPosts()[0]?.id || null;
+  if (o2State.selectedPostId === postId) o2State.selectedPostId = null;
+  if (weaponsState.selectedPostId === postId) weaponsState.selectedPostId = null;
+  if (storageState.selectedPostId === postId) storageState.selectedPostId = null;
+}
+
+function deletePostOnBackend(postId) {
+  return apiRequest(`/api/posts/${encodeURIComponent(postId)}`, { method: "DELETE" });
+}
+
+function getSelectedPostIdBySurface(surface) {
+  if (surface === "cafeteria") return cafeteriaState.selectedPostId;
+  if (surface === "o2") return o2State.selectedPostId;
+  if (surface === "weapons") return weaponsState.selectedPostId;
+  if (surface === "storage") return storageState.selectedPostId;
+  return null;
+}
+
+function deleteActivePost(surface) {
+  const postId = getSelectedPostIdBySurface(surface);
+  const post = getPostById(postId);
+  if (!post) return;
+
+  deletePostOnBackend(postId)
+    .then(() => {
+      deletePostFromStore(postId);
+      refreshPostViews();
+    })
+    .catch(error => {
+      console.warn("Delete sync failed:", error.message);
+      loadPostsFromBackend();
+    });
+}
+
+function updateDeleteButton(buttonId, post) {
+  const button = document.getElementById(buttonId);
+  if (!button) return;
+  button.style.display = post && post.canDelete ? "inline-flex" : "none";
+}
+
+function savePost(postId) {
+  const post = getPostById(postId);
+  if (!post) return false;
+  post.savedByMe = true;
+  apiRequest(`/api/posts/${encodeURIComponent(postId)}/save`, { method: "POST" })
+    .catch(error => console.warn("Save sync failed:", error.message));
+  return true;
+}
+
+function unsavePost(postId) {
+  const post = getPostById(postId);
+  if (!post) return false;
+  post.savedByMe = false;
+  apiRequest(`/api/posts/${encodeURIComponent(postId)}/save`, { method: "DELETE" })
+    .catch(error => console.warn("Unsave sync failed:", error.message));
+  return true;
+}
+
+function getSavedPosts() {
+  return postStore.posts.filter(post => post.savedByMe);
+}
+
+const cafeteriaState = {
+  selectedPostId: null,
+  visibleCount: 3,
+  carouselStart: 0,
+  shuffleOrder: null
+};
+
+function initCafeteriaBoard() {
+  cafeteriaState.shuffleOrder = null;
+  const posts = getCafeteriaPosts();
+  cafeteriaState.visibleCount = 3;
+  cafeteriaState.carouselStart = 0;
+  cafeteriaState.selectedPostId = posts[0] ? posts[0].id : null;
+  renderCafeteriaFeed();
+  renderCafeteriaDetail();
+  loadPostsForFeed("top").catch(() => loadPostsFromBackend());
+}
+
+function getCafeteriaPosts() {
+  if (cafeteriaState.shuffleOrder) {
+    return cafeteriaState.shuffleOrder
+      .map(postId => getPostById(postId))
+      .filter(Boolean);
+  }
+  return [...getAllPosts()].sort((a, b) => getPostScore(b) - getPostScore(a));
 }
 
 function renderCafeteriaFeed() {
@@ -549,15 +1071,16 @@ function renderCafeteriaFeed() {
   if (!feedEl) return;
 
   feedEl.innerHTML = '';
+  const posts = getCafeteriaPosts();
   const endIndex = cafeteriaState.carouselStart + cafeteriaState.visibleCount;
-  cafeteriaState.posts.slice(cafeteriaState.carouselStart, endIndex).forEach((post) => {
+  posts.slice(cafeteriaState.carouselStart, endIndex).forEach((post) => {
     const item = document.createElement('article');
     item.className = 'cafeteria-feed-item';
     if (post.id === cafeteriaState.selectedPostId) item.classList.add('selected');
     item.onclick = () => selectCafeteriaPost(post.id);
 
     item.innerHTML = `
-      <p class="cafeteria-meta">${post.tag} | ${post.likes} likes</p>
+      <p class="cafeteria-meta">${post.tag} | ${getPostScoreLabel(post)}</p>
       <p>${post.title}</p>
     `;
     feedEl.appendChild(item);
@@ -569,19 +1092,25 @@ function renderCafeteriaDetail() {
   const metaEl = document.getElementById('cafeteria-selected-meta');
   if (!detailEl || !metaEl) return;
 
-  const post = cafeteriaState.posts.find((item) => item.id === cafeteriaState.selectedPostId);
-  if (!post) return;
+  const post = getPostById(cafeteriaState.selectedPostId);
+  if (!post) {
+    updateDeleteButton("cafeteria-delete-post-btn", null);
+    return;
+  }
 
-  metaEl.textContent = `Selected: ${post.likes} likes | ${post.comments.length} comments`;
+  metaEl.textContent = `Selected: ${getPostScoreLabel(post)} | ${getPostCommentCount(post)} comments | ${post.authorName}`;
+  updateDeleteButton("cafeteria-delete-post-btn", post);
   detailEl.innerHTML = `
     <div class="cafeteria-thread-card">
       <p class="cafeteria-section-label">Post</p>
       <p><strong>${post.title}</strong></p>
-      <p style="margin-top:8px;">${post.detail}</p>
+      <p style="margin-top:8px;">${post.body}</p>
     </div>
     <div class="cafeteria-comment-list">
       <p class="cafeteria-section-label">Comments</p>
-      ${post.comments.map((comment) => `<div class="cafeteria-comment-item"><p>${comment}</p></div>`).join('')}
+      ${post.comments.length > 0
+        ? post.comments.map((comment) => `<div class="cafeteria-comment-item"><p>${comment}</p></div>`).join('')
+        : `<div class="cafeteria-comment-item"><p>${getPostCommentCount(post) > 0 ? "Loading comments..." : "No comments yet."}</p></div>`}
     </div>
   `;
 }
@@ -590,6 +1119,7 @@ function selectCafeteriaPost(postId) {
   cafeteriaState.selectedPostId = postId;
   renderCafeteriaFeed();
   renderCafeteriaDetail();
+  loadCommentsForPost(postId);
 
   const threadSection = document.getElementById('cafeteria-thread-section');
   if (threadSection) {
@@ -598,35 +1128,46 @@ function selectCafeteriaPost(postId) {
 }
 
 function voteOnCafeteriaPost(direction) {
-  const post = cafeteriaState.posts.find((item) => item.id === cafeteriaState.selectedPostId);
-  if (!post) return;
-  post.likes += direction === 'up' ? 1 : -1;
-  if (post.likes < 0) post.likes = 0;
-  cafeteriaState.posts.sort((a, b) => b.likes - a.likes);
+  voteOnPost(cafeteriaState.selectedPostId, direction);
+  syncVoteToBackend(cafeteriaState.selectedPostId, direction);
+  cafeteriaState.shuffleOrder = null;
   renderCafeteriaFeed();
   renderCafeteriaDetail();
 }
 
 function addCafeteriaComment() {
   const inputEl = document.getElementById('cafeteria-comment-input');
-  const post = cafeteriaState.posts.find((item) => item.id === cafeteriaState.selectedPostId);
+  const post = getPostById(cafeteriaState.selectedPostId);
   if (!inputEl || !post) return;
 
   const text = inputEl.value.trim();
   if (!text) return;
+  const previousCommentCount = getPostCommentCount(post);
   post.comments.push(`Anon: ${text}`);
+  post.commentCount = previousCommentCount + 1;
   inputEl.value = '';
   renderCafeteriaDetail();
+  apiRequest(`/api/posts/${encodeURIComponent(post.id)}/comments`, {
+    method: "POST",
+    body: JSON.stringify({ content: text })
+  }).then(data => {
+    const syncedPost = getPostById(post.id);
+    if (!syncedPost || !data.comment) return;
+    syncedPost.comments[syncedPost.comments.length - 1] = `${data.comment.authorName}: ${data.comment.content}`;
+    renderCafeteriaDetail();
+  }).catch(error => console.warn("Comment sync failed:", error.message));
 }
 
 function shuffleCafeteriaFeed() {
-  cafeteriaState.posts.sort(() => Math.random() - 0.5);
+  cafeteriaState.shuffleOrder = [...getAllPosts()]
+    .sort(() => Math.random() - 0.5)
+    .map(post => post.id);
   cafeteriaState.carouselStart = 0;
   renderCafeteriaFeed();
 }
 
 function moveCafeteriaCarousel(direction) {
-  const maxStart = Math.max(0, cafeteriaState.posts.length - cafeteriaState.visibleCount);
+  const maxStart = Math.max(0, getAllPosts().length - cafeteriaState.visibleCount);
   let nextStart = cafeteriaState.carouselStart + (direction * cafeteriaState.visibleCount);
 
   if (nextStart < 0) nextStart = 0;
@@ -638,88 +1179,61 @@ function moveCafeteriaCarousel(direction) {
 
 const medbayState = {
   activeRange: "day",
-  ranges: {
-    day: {
-      focus: 78,
-      stats: [
-        { label: "Usage Time", value: "1h 42m", trend: "+18m from last visit" },
-        { label: "Posts Viewed", value: "34", trend: "12 in Cafeteria" },
-        { label: "Messages", value: "7", trend: "3 unread cleared" },
-        { label: "Zones Visited", value: "5", trend: "Admin most recent" }
-      ],
-      zones: [
-        { name: "Cafeteria", percent: 34, color: "#00d4ff" },
-        { name: "Communications", percent: 24, color: "#0f766e" },
-        { name: "Admin", percent: 18, color: "#ef3340" },
-        { name: "Navigation", percent: 14, color: "#8338ec" },
-        { name: "Shields", percent: 10, color: "#f6c243" }
-      ],
-      signals: [
-        { label: "Scroll Pace", value: "Steady", percent: 72 },
-        { label: "Reply Speed", value: "Fast", percent: 84 },
-        { label: "Explore Balance", value: "Healthy", percent: 68 }
-      ],
-      notes: ["Peak activity near Communications.", "Profile settings updated this session.", "Usage pattern is balanced across social and utility zones."]
-    },
-    week: {
-      focus: 84,
-      stats: [
-        { label: "Usage Time", value: "8h 15m", trend: "+11% this week" },
-        { label: "Posts Viewed", value: "221", trend: "48 liked threads" },
-        { label: "Messages", value: "63", trend: "18 replies sent" },
-        { label: "Zones Visited", value: "9", trend: "Shields newly active" }
-      ],
-      zones: [
-        { name: "Cafeteria", percent: 29, color: "#00d4ff" },
-        { name: "Communications", percent: 26, color: "#0f766e" },
-        { name: "Navigation", percent: 17, color: "#8338ec" },
-        { name: "Admin", percent: 16, color: "#ef3340" },
-        { name: "Shields", percent: 12, color: "#f6c243" }
-      ],
-      signals: [
-        { label: "Scroll Pace", value: "Focused", percent: 80 },
-        { label: "Reply Speed", value: "Reliable", percent: 76 },
-        { label: "Explore Balance", value: "Strong", percent: 88 }
-      ],
-      notes: ["Best focus score came after shorter sessions.", "Most interactions came from message replies.", "Privacy check completed in Shields."]
-    },
-    month: {
-      focus: 81,
-      stats: [
-        { label: "Usage Time", value: "31h 08m", trend: "11 active days" },
-        { label: "Posts Viewed", value: "914", trend: "Top topic: space" },
-        { label: "Messages", value: "248", trend: "92% response rate" },
-        { label: "Zones Visited", value: "12", trend: "Full station coverage" }
-      ],
-      zones: [
-        { name: "Cafeteria", percent: 31, color: "#00d4ff" },
-        { name: "Communications", percent: 22, color: "#0f766e" },
-        { name: "Admin", percent: 15, color: "#ef3340" },
-        { name: "Navigation", percent: 14, color: "#8338ec" },
-        { name: "Other Zones", percent: 18, color: "#6c757d" }
-      ],
-      signals: [
-        { label: "Scroll Pace", value: "Stable", percent: 74 },
-        { label: "Reply Speed", value: "Consistent", percent: 79 },
-        { label: "Explore Balance", value: "Complete", percent: 91 }
-      ],
-      notes: ["Cafeteria remains the strongest engagement zone.", "Message activity is consistent across the month.", "Exploration coverage improved after Navigation upgrades."]
-    }
-  }
+  data: null,
+  isLoading: false,
+  error: ""
 };
 
 function initMedbayAnalytics() {
-  renderMedbayAnalytics();
+  loadMedbayAnalytics();
 }
 
 function setMedbayRange(range) {
-  if (!medbayState.ranges[range]) return;
+  if (!["day", "week", "month"].includes(range)) return;
   medbayState.activeRange = range;
+  loadMedbayAnalytics();
+}
+
+function getEmptyMedbayAnalytics() {
+  return {
+    focus: 0,
+    stats: [
+      { label: "Usage Time", value: "0m", trend: "0 sessions" },
+      { label: "Posts Viewed", value: "0", trend: "0 comments made" },
+      { label: "Messages", value: "0", trend: "0 friends" },
+      { label: "Saved/Votes", value: "0", trend: "0 posts created" }
+    ],
+    zones: [{ name: "No activity yet", percent: 0, color: "#6c757d" }],
+    signals: [
+      { label: "Objective Completion", value: "0%", percent: 0 },
+      { label: "Reply Activity", value: "Quiet", percent: 0 },
+      { label: "Explore Balance", value: "Narrow", percent: 0 },
+      { label: "Creation Health", value: "Reading", percent: 0 }
+    ],
+    notes: [medbayState.error || "MedBay analytics are waiting for backend activity."]
+  };
+}
+
+function loadMedbayAnalytics() {
+  medbayState.isLoading = true;
   renderMedbayAnalytics();
+  apiRequest(`/api/users/me/analytics?range=${encodeURIComponent(medbayState.activeRange)}`)
+    .then((data) => {
+      medbayState.data = data.analytics || null;
+      medbayState.error = "";
+    })
+    .catch((error) => {
+      medbayState.data = null;
+      medbayState.error = `Could not load backend analytics: ${error.message}`;
+    })
+    .finally(() => {
+      medbayState.isLoading = false;
+      renderMedbayAnalytics();
+    });
 }
 
 function renderMedbayAnalytics() {
-  const data = medbayState.ranges[medbayState.activeRange];
+  const data = medbayState.data || getEmptyMedbayAnalytics();
   const score = document.getElementById("medbay-focus-score");
   const statGrid = document.getElementById("medbay-stat-grid");
   const zoneList = document.getElementById("medbay-zone-list");
@@ -727,21 +1241,21 @@ function renderMedbayAnalytics() {
   const noteList = document.getElementById("medbay-note-list");
   if (!data || !score || !statGrid || !zoneList || !signalList || !noteList) return;
 
-  score.textContent = data.focus;
+  score.textContent = medbayState.isLoading ? "..." : data.focus;
 
   document.querySelectorAll(".medbay-tab").forEach((tab) => {
     tab.classList.toggle("selected", tab.dataset.range === medbayState.activeRange);
   });
 
   statGrid.innerHTML = data.stats
-    .map((stat) => `<article class="medbay-stat-card"><p>${stat.label}</p><strong>${stat.value}</strong><span>${stat.trend}</span></article>`)
+    .map((stat) => `<article class="medbay-stat-card"><p>${escapeHtml(stat.label)}</p><strong>${escapeHtml(stat.value)}</strong><span>${escapeHtml(stat.trend)}</span></article>`)
     .join("");
 
   zoneList.innerHTML = data.zones
     .map((zone) => `
       <div class="medbay-zone-item">
-        <div><strong>${zone.name}</strong><span>${zone.percent}%</span></div>
-        <div class="dynamic-progress-bar"><div class="dynamic-progress-fill" style="width:${zone.percent}%; background:${zone.color};"></div></div>
+        <div><strong>${escapeHtml(zone.name)}</strong><span>${zone.percent}%</span></div>
+        <div class="dynamic-progress-bar"><div class="dynamic-progress-fill" style="width:${zone.percent}%; background:${escapeHtml(zone.color)};"></div></div>
       </div>
     `)
     .join("");
@@ -749,14 +1263,14 @@ function renderMedbayAnalytics() {
   signalList.innerHTML = data.signals
     .map((signal) => `
       <div class="medbay-signal-item">
-        <div><strong>${signal.label}</strong><span>${signal.value}</span></div>
+        <div><strong>${escapeHtml(signal.label)}</strong><span>${escapeHtml(signal.value)}</span></div>
         <div class="dynamic-progress-bar"><div class="dynamic-progress-fill" style="width:${signal.percent}%; background:#0f766e;"></div></div>
       </div>
     `)
     .join("");
 
   noteList.innerHTML = data.notes
-    .map((note) => `<div class="medbay-note-item">${note}</div>`)
+    .map((note) => `<div class="medbay-note-item">${escapeHtml(note)}</div>`)
     .join("");
 }
 
@@ -1177,7 +1691,12 @@ const adminColorOptions = [
 const adminState = {
   displayName: authedCrewName,
   status: "On Duty",
-  profileSaved: false
+  profileSaved: false,
+  crewmates: {
+    following: [],
+    followers: [],
+    suggestions: []
+  }
 };
 
 function initAdminProfileHub() {
@@ -1202,6 +1721,7 @@ function initAdminProfileHub() {
   updateAdminPreferencesSummary();
   updateAdminColorSelection();
   renderAdminChecklist();
+  loadAdminCrewmates();
 }
 
 function readAdminProfileFromStorage() {
@@ -1302,6 +1822,89 @@ function renderAdminChecklist() {
     .map((item) => `<div class="admin-check-item ${item.done ? "done" : ""}"><span>${item.done ? "OK" : "!"}</span><p>${item.label}</p></div>`)
     .join("");
 }
+
+function loadAdminCrewmates() {
+  apiRequest("/api/users/me/crewmates")
+    .then(data => {
+      adminState.crewmates.following = data.following || [];
+      adminState.crewmates.followers = data.followers || [];
+      adminState.crewmates.suggestions = data.suggestions || [];
+      if (
+        adminState.crewmates.following.length === 0 &&
+        adminState.crewmates.followers.length === 0 &&
+        adminState.crewmates.suggestions.length === 0
+      ) {
+        adminState.crewmates.suggestions = getFallbackCrewmates();
+      }
+      renderAdminCrewmates();
+    })
+    .catch(error => {
+      console.warn("Da Crewmates sync failed:", error.message);
+      adminState.crewmates.suggestions = getFallbackCrewmates();
+      renderAdminCrewmates("Could not load Da Crewmates from the API.");
+    });
+}
+
+function getFallbackCrewmates() {
+  return [
+    { id: "cyan-crew", displayName: "Cyan", avatarColor: "cyan" },
+    { id: "yellow-crew", displayName: "Yellow", avatarColor: "yellow" },
+    { id: "purple-crew", displayName: "Purple", avatarColor: "purple" }
+  ].filter((crewmate) => crewmate.id !== CURRENT_USER_ID);
+}
+
+function renderAdminCrewmates(errorMessage) {
+  const summary = document.getElementById("admin-crewmates-summary");
+  const followingList = document.getElementById("admin-following-list");
+  const followersList = document.getElementById("admin-followers-list");
+  const suggestionsList = document.getElementById("admin-suggestions-list");
+  if (!summary || !followingList || !followersList || !suggestionsList) return;
+
+  const { following, followers, suggestions } = adminState.crewmates;
+  summary.textContent = errorMessage || `${following.length} following | ${followers.length} followed by`;
+  followingList.innerHTML = renderCrewmateRows(following, "following");
+  followersList.innerHTML = renderCrewmateRows(followers, "followers");
+  suggestionsList.innerHTML = renderCrewmateRows(suggestions, "suggestions");
+}
+
+function renderCrewmateRows(crewmates, mode) {
+  if (!crewmates || crewmates.length === 0) {
+    return `<p class="admin-meta">No crewmates here yet.</p>`;
+  }
+
+  return crewmates.map(crewmate => {
+    const initial = (crewmate.displayName || "C").charAt(0).toUpperCase();
+    const color = crewmate.avatarColor || "cyan";
+    const action = mode === "following"
+      ? `<button class="dynamic-btn danger-btn" type="button" onclick="unfollowCrewmate('${crewmate.id}')">Remove</button>`
+      : mode === "suggestions"
+        ? `<button class="dynamic-btn" type="button" onclick="followCrewmate('${crewmate.id}')">Add</button>`
+        : `<span>Follower</span>`;
+
+    return `
+      <div class="admin-crewmate-item">
+        <div class="admin-crewmate-avatar" style="background:${color};"></div>
+        <p><strong>${initial}</strong> ${crewmate.displayName}</p>
+        ${action}
+      </div>
+    `;
+  }).join("");
+}
+
+function followCrewmate(userId) {
+  apiRequest(`/api/users/${encodeURIComponent(userId)}/follow`, { method: "POST" })
+    .then(loadAdminCrewmates)
+    .catch(error => console.warn("Follow failed:", error.message));
+}
+
+function unfollowCrewmate(userId) {
+  apiRequest(`/api/users/${encodeURIComponent(userId)}/unfollow`, { method: "POST" })
+    .then(loadAdminCrewmates)
+    .catch(error => console.warn("Unfollow failed:", error.message));
+}
+
+const APOD_OFFLINE_IMAGE = "Assets/apod-fallback.svg";
+
 async function loadCafeteriaApod() {
   const imageEl = document.getElementById('cafeteria-apod-image');
   const titleEl = document.getElementById('cafeteria-apod-title');
@@ -1310,21 +1913,24 @@ async function loadCafeteriaApod() {
   if (!imageEl || !titleEl || !metaEl || !linkEl) return;
 
   try {
-    const localRes = await fetch('http://localhost:4000/api/space/apod');
-    if (!localRes.ok) throw new Error(`Local backend unavailable: ${localRes.status}`);
-    const payload = await localRes.json();
+    const payload = await apiRequest('/api/space/apod');
     const apod = payload && payload.data ? payload.data : null;
     applyApodToCard(apod, imageEl, titleEl, metaEl, linkEl);
-  } catch (err) {
-    try {
-      const fallbackRes = await fetch('https://api.nasa.gov/planetary/apod?api_key=DEMO_KEY');
-      if (!fallbackRes.ok) throw new Error(`NASA fallback failed: ${fallbackRes.status}`);
-      const apod = await fallbackRes.json();
-      applyApodToCard(apod, imageEl, titleEl, metaEl, linkEl);
-    } catch (fallbackErr) {
-      metaEl.textContent = 'APOD feed unavailable right now.';
-      console.error('APOD load error:', err, fallbackErr);
+    if (payload && payload.warning) {
+      metaEl.textContent = apod && apod.source === "html"
+        ? `NASA APOD | ${apod.date || "today"} | backup source`
+        : payload.warning;
     }
+  } catch (err) {
+    applyApodToCard({
+      title: "Station Nebula",
+      date: "Offline APOD fallback",
+      media_type: "image",
+      url: APOD_OFFLINE_IMAGE,
+      hdurl: "https://apod.nasa.gov/apod/astropix.html"
+    }, imageEl, titleEl, metaEl, linkEl);
+    metaEl.textContent = 'APOD API unavailable. Showing local station fallback.';
+    console.error('APOD load error:', err);
   }
 }
 
@@ -1342,73 +1948,417 @@ function applyApodToCard(apod, imageEl, titleEl, metaEl, linkEl) {
   linkEl.href = apod.hdurl || apod.url || 'https://apod.nasa.gov/apod/astropix.html';
 }
 
+const friendsState = {
+  activeTab: "friends",
+  selected: null,
+  data: {
+    friends: [],
+    incoming: [],
+    outgoing: [],
+    following: [],
+    followers: [],
+    suggestions: []
+  },
+  dmThreads: [],
+  dmMessages: [],
+  selectedThreadId: null,
+  dmError: ""
+};
+
+function initFriendsHub() {
+  friendsState.activeTab = friendsState.activeTab || "friends";
+  friendsState.selected = null;
+  renderFriendsHub();
+  loadFriendsHub();
+  loadDmThreads();
+  loadSessionState();
+}
+
+function loadFriendsHub() {
+  apiRequest("/api/friends/list")
+    .then((data) => {
+      friendsState.data = {
+        friends: data.friends || [],
+        incoming: data.incoming || [],
+        outgoing: data.outgoing || [],
+        following: data.following || [],
+        followers: data.followers || [],
+        suggestions: data.suggestions || []
+      };
+      renderFriendsHub();
+    })
+    .catch((error) => {
+      const banner = document.getElementById("friends-error-banner");
+      if (banner) {
+        banner.textContent = `Crew network unavailable: ${error.message}`;
+        banner.style.display = "block";
+      }
+    });
+}
+
+function switchFriendsTab(tab) {
+  friendsState.activeTab = tab;
+  friendsState.selected = null;
+  renderFriendsHub();
+  if (tab === "objectives") loadSessionState();
+  if (tab === "messages") loadDmThreads();
+}
+
+function renderFriendsHub() {
+  document.querySelectorAll(".friends-tab-btn").forEach((button) => {
+    button.classList.toggle("active", button.dataset.tab === friendsState.activeTab);
+  });
+  const friendsBadge = document.getElementById("badge-friends");
+  const requestsBadge = document.getElementById("badge-requests");
+  const messagesBadge = document.getElementById("badge-messages");
+  if (friendsBadge) friendsBadge.textContent = friendsState.data.friends.length;
+  if (requestsBadge) requestsBadge.textContent = friendsState.data.incoming.length;
+  if (messagesBadge) messagesBadge.textContent = friendsState.dmThreads.length;
+  renderFriendsList();
+  renderFriendsFooter();
+  renderObjectivePanel();
+}
+
+function getActiveFriendRows() {
+  if (friendsState.activeTab === "friends") return friendsState.data.friends.map((row) => ({ ...row, status: "Friend" }));
+  if (friendsState.activeTab === "requests") {
+    return [
+      ...friendsState.data.incoming.map((row) => ({ ...row, status: "Incoming" })),
+      ...friendsState.data.outgoing.map((row) => ({ ...row, status: "Outgoing" }))
+    ];
+  }
+  if (friendsState.activeTab === "suggestions") return friendsState.data.suggestions.map((row) => ({ ...row, status: "Suggested" }));
+  if (friendsState.activeTab === "following") return friendsState.data.following.map((row) => ({ ...row, status: "Following" }));
+  if (friendsState.activeTab === "followers") return friendsState.data.followers.map((row) => ({ ...row, status: "Follower" }));
+  return [];
+}
+
+function renderFriendsList() {
+  const container = document.getElementById("friends-list-container");
+  if (!container) return;
+  if (friendsState.activeTab === "objectives") {
+    container.innerHTML = `
+      <div class="daily-objectives-panel">
+        <div class="daily-objectives-header">
+          <strong>Daily Objectives</strong>
+          <span id="daily-objective-summary" class="state-badge">Loading</span>
+        </div>
+        <div id="daily-objective-list" class="daily-objective-list"></div>
+        <button class="dynamic-btn danger-btn" type="button" onclick="endCurrentSession()">End Session</button>
+      </div>
+    `;
+    renderObjectivePanel();
+    return;
+  }
+
+  if (friendsState.activeTab === "messages") {
+    const threads = friendsState.dmThreads;
+    const selectedThread = threads.find((thread) => thread.id === friendsState.selectedThreadId);
+    container.innerHTML = `
+      <div class="dm-panel">
+        <div class="dm-thread-list">
+          ${friendsState.dmError ? `<p class="friends-error-banner">${escapeHtml(friendsState.dmError)}</p>` : ""}
+          ${threads.length === 0 ? `<p class="friends-empty-msg">No DM threads yet. Select a friend and hit Message.</p>` : threads.map((thread) => {
+            const selected = thread.id === friendsState.selectedThreadId;
+            const other = thread.otherUser || {};
+            const preview = thread.lastMessage ? thread.lastMessage.body : "No messages yet.";
+            return `
+              <button class="dm-thread-row ${selected ? "selected" : ""}" type="button" onclick="selectDmThread('${thread.id}')">
+                <span class="friends-avatar" style="background:${escapeHtml(other.avatarColor || "cyan")};">${escapeHtml((other.displayName || "C").charAt(0).toUpperCase())}</span>
+                <span><strong>${escapeHtml(other.displayName || other.id || "Crewmate")}</strong><small>${escapeHtml(preview)}</small></span>
+              </button>
+            `;
+          }).join("")}
+        </div>
+        <div class="dm-thread-pane">
+          <div class="dm-thread-meta">
+            <strong>${selectedThread ? escapeHtml(selectedThread.otherUser?.displayName || "Crewmate") : "Select a thread"}</strong>
+            <span>${selectedThread ? "Direct message" : "Messages are stored on the backend"}</span>
+          </div>
+          <div id="dm-message-list" class="dm-message-list">
+            ${renderDmMessagesMarkup()}
+          </div>
+          <div class="dm-compose-row">
+            <input id="dm-compose-input" class="dynamic-input" type="text" maxlength="1000" placeholder="${selectedThread ? "Write a message..." : "Select a thread first"}" ${selectedThread ? "" : "disabled"}>
+            <button class="dynamic-btn" type="button" onclick="sendDmMessage()" ${selectedThread ? "" : "disabled"}>Send</button>
+          </div>
+        </div>
+      </div>
+    `;
+    return;
+  }
+
+  const rows = getActiveFriendRows();
+  if (rows.length === 0) {
+    container.innerHTML = `<p class="friends-empty-msg">No crewmates in this panel.</p>`;
+    return;
+  }
+  container.innerHTML = rows.map((crewmate) => {
+    const selected = friendsState.selected && friendsState.selected.id === crewmate.id && friendsState.selected.status === crewmate.status;
+    const initial = (crewmate.displayName || "C").charAt(0).toUpperCase();
+    return `
+      <button class="friends-row ${selected ? "selected" : ""}" type="button" onclick="selectFriendRow('${crewmate.id}', '${crewmate.status}', '${crewmate.requestId || ""}')">
+        <span class="friends-avatar" style="background:${crewmate.avatarColor || "cyan"};">${initial}</span>
+        <span><strong>${crewmate.displayName || crewmate.id}</strong><small>${crewmate.id}</small></span>
+        <span class="state-badge">${crewmate.status}</span>
+      </button>
+    `;
+  }).join("");
+}
+
+function selectFriendRow(id, status, requestId) {
+  const row = getActiveFriendRows().find((item) => item.id === id && item.status === status);
+  friendsState.selected = row ? { ...row, requestId } : null;
+  renderFriendsHub();
+}
+
+function renderFriendsFooter() {
+  const selectedName = document.getElementById("friends-selected-name");
+  const selectedStatus = document.getElementById("friends-selected-status");
+  const actions = document.getElementById("friends-footer-actions");
+  if (!selectedName || !selectedStatus || !actions) return;
+  const selected = friendsState.selected;
+  selectedName.textContent = selected ? selected.displayName : "No crewmate selected";
+  selectedStatus.textContent = selected ? selected.status : "";
+  if (!selected) {
+    actions.innerHTML = "";
+    return;
+  }
+  if (selected.status === "Incoming") {
+    actions.innerHTML = `
+      <button class="dynamic-btn" type="button" onclick="acceptFriendRequest('${selected.requestId}')">Accept</button>
+      <button class="dynamic-btn danger-btn" type="button" onclick="declineFriendRequest('${selected.requestId}')">Decline</button>
+    `;
+  } else if (selected.status === "Outgoing") {
+    actions.innerHTML = `<button class="dynamic-btn danger-btn" type="button" onclick="cancelFriendRequest('${selected.requestId}')">Cancel</button>`;
+  } else if (selected.status === "Suggested" || selected.status === "Follower") {
+    actions.innerHTML = `<button class="dynamic-btn" type="button" onclick="sendFriendRequest('${selected.id}')">Add Friend</button>`;
+  } else if (selected.status === "Friend") {
+    actions.innerHTML = `
+      <button class="dynamic-btn" type="button" onclick="openDmWithUser('${selected.id}')">Message</button>
+      <button class="dynamic-btn danger-btn" type="button" onclick="removeFriend('${selected.id}')">Remove</button>
+    `;
+  } else {
+    actions.innerHTML = "";
+  }
+}
+
+function renderDmMessagesMarkup() {
+  if (!friendsState.selectedThreadId) return `<p class="friends-empty-msg">Pick a DM thread from the left.</p>`;
+  if (friendsState.dmMessages.length === 0) return `<p class="friends-empty-msg">No messages yet. Start the thread.</p>`;
+  return friendsState.dmMessages.map((message) => `
+    <div class="dm-message ${message.sentByMe ? "sent" : "received"}">
+      <small>${escapeHtml(message.senderName || (message.sentByMe ? "You" : "Crewmate"))}</small>
+      <p>${escapeHtml(message.body)}</p>
+    </div>
+  `).join("");
+}
+
+function loadDmThreads() {
+  return apiRequest("/api/dm/threads")
+    .then((data) => {
+      friendsState.dmThreads = data.threads || [];
+      friendsState.dmError = "";
+      if (!friendsState.selectedThreadId && friendsState.dmThreads.length > 0) {
+        friendsState.selectedThreadId = friendsState.dmThreads[0].id;
+        return loadDmMessages(friendsState.selectedThreadId);
+      }
+      renderFriendsHub();
+      return null;
+    })
+    .catch((error) => {
+      friendsState.dmError = `Messages unavailable: ${error.message}`;
+      renderFriendsHub();
+    });
+}
+
+function openDmWithUser(receiverId) {
+  apiRequest("/api/dm/threads", { method: "POST", body: JSON.stringify({ receiverId }) })
+    .then((data) => {
+      const thread = data.thread;
+      if (thread && !friendsState.dmThreads.some((item) => item.id === thread.id)) {
+        friendsState.dmThreads.unshift(thread);
+      }
+      friendsState.selectedThreadId = thread ? thread.id : friendsState.selectedThreadId;
+      friendsState.activeTab = "messages";
+      return loadDmMessages(friendsState.selectedThreadId);
+    })
+    .catch((error) => {
+      friendsState.dmError = `Could not open DM: ${error.message}`;
+      friendsState.activeTab = "messages";
+      renderFriendsHub();
+    });
+}
+
+function selectDmThread(threadId) {
+  friendsState.selectedThreadId = threadId;
+  loadDmMessages(threadId);
+}
+
+function loadDmMessages(threadId) {
+  if (!threadId) {
+    friendsState.dmMessages = [];
+    renderFriendsHub();
+    return Promise.resolve();
+  }
+  return apiRequest(`/api/dm/threads/${encodeURIComponent(threadId)}/messages`)
+    .then((data) => {
+      friendsState.dmMessages = data.messages || [];
+      const updatedThread = data.thread;
+      if (updatedThread) {
+        const index = friendsState.dmThreads.findIndex((thread) => thread.id === updatedThread.id);
+        if (index >= 0) friendsState.dmThreads[index] = updatedThread;
+      }
+      friendsState.dmError = "";
+      renderFriendsHub();
+    })
+    .catch((error) => {
+      friendsState.dmError = `Could not load thread: ${error.message}`;
+      friendsState.dmMessages = [];
+      renderFriendsHub();
+    });
+}
+
+function sendDmMessage() {
+  const input = document.getElementById("dm-compose-input");
+  const threadId = friendsState.selectedThreadId;
+  if (!input || !threadId) return;
+  const body = input.value.trim();
+  if (!body) return;
+  input.disabled = true;
+  apiRequest(`/api/dm/threads/${encodeURIComponent(threadId)}/messages`, {
+    method: "POST",
+    body: JSON.stringify({ body })
+  })
+    .then(() => {
+      input.value = "";
+      return loadDmMessages(threadId).then(loadDmThreads);
+    })
+    .catch((error) => {
+      friendsState.dmError = `Could not send message: ${error.message}`;
+      renderFriendsHub();
+    })
+    .finally(() => {
+      input.disabled = false;
+    });
+}
+
+function sendFriendRequest(receiverId) {
+  apiRequest("/api/friends/request", { method: "POST", body: JSON.stringify({ receiverId }) }).then(loadFriendsHub).then(loadSessionState);
+}
+
+function acceptFriendRequest(requestId) {
+  apiRequest("/api/friends/accept", { method: "POST", body: JSON.stringify({ requestId }) }).then(loadFriendsHub);
+}
+
+function declineFriendRequest(requestId) {
+  apiRequest("/api/friends/decline", { method: "POST", body: JSON.stringify({ requestId }) }).then(loadFriendsHub);
+}
+
+function cancelFriendRequest(requestId) {
+  apiRequest("/api/friends/cancel", { method: "POST", body: JSON.stringify({ requestId }) }).then(loadFriendsHub);
+}
+
+function removeFriend(friendId) {
+  apiRequest("/api/friends/remove", { method: "POST", body: JSON.stringify({ friendId }) }).then(loadFriendsHub);
+}
+
 
 
 // =========================
 // REACTOR HUB
 // =========================
 
-const reactorState = {
-  zoneActivity: [
-    { name: "Cafeteria", visits: 142, color: "#00d4ff" },
-    { name: "Communications", visits: 98, color: "#0f766e" },
-    { name: "Admin", visits: 74, color: "#ef3340" },
-    { name: "Navigation", visits: 61, color: "#8338ec" },
-    { name: "Shields", visits: 43, color: "#f6c243" },
-    { name: "MedBay", visits: 38, color: "#10b981" }
-  ],
-  events: [
-    { type: "ok", text: "All zone terminals loaded successfully." },
-    { type: "ok", text: "APOD feed integration refreshed." },
-    { type: "warn", text: "Backend API response time elevated briefly." },
-    { type: "ok", text: "Auth session verified for active crew." },
-    { type: "ok", text: "Navigation zoning canvas rendered without fault." },
-    { type: "warn", text: "Cafeteria carousel index reset after shuffle." }
-  ]
-};
+const reactorState = { data: null, error: "" };
 
 function initReactorHub() {
-  renderReactorStats();
-  renderReactorZoneActivity();
-  renderReactorEventLog();
+  renderReactorHub();
+  apiRequest("/api/system/reactor")
+    .then((data) => {
+      reactorState.data = data.reactor;
+      reactorState.error = "";
+      renderReactorHub();
+    })
+    .catch((error) => {
+      reactorState.data = null;
+      reactorState.error = `Reactor backend unavailable: ${error.message}`;
+      renderReactorHub();
+    });
 }
 
-function renderReactorStats() {
+function getReactorFallback() {
+  return {
+    status: reactorState.error || "Backend offline",
+    visitorsToday: 0,
+    activeSessions: 0,
+    totalUsers: 0,
+    openReports: 0,
+    storageCounts: [
+      { label: "Posts", count: 0, color: "#6c757d" },
+      { label: "Comments", count: 0, color: "#6c757d" },
+      { label: "DMs", count: 0, color: "#6c757d" },
+      { label: "Reports", count: 0, color: "#6c757d" }
+    ],
+    zones: [{ name: "No backend data", visits: 0, color: "#6c757d" }],
+    events: [{ type: "warn", text: reactorState.error || "Waiting for Reactor backend data." }]
+  };
+}
+
+function renderReactorHub() {
+  const data = reactorState.data || getReactorFallback();
   const visitors = document.getElementById("reactor-visitors");
   const active = document.getElementById("reactor-active");
-  if (visitors) visitors.textContent = reactorState.zoneActivity.reduce((sum, z) => sum + z.visits, 0);
-  if (active) active.textContent = Math.floor(Math.random() * 12) + 4;
-}
-
-function renderReactorZoneActivity() {
+  const uptime = document.getElementById("reactor-uptime");
+  const latency = document.getElementById("reactor-latency");
+  const statusLabel = document.getElementById("reactor-status-label");
+  const healthList = document.querySelector(".reactor-health-list");
   const list = document.getElementById("reactor-zone-activity");
-  if (!list) return;
-
-  const max = Math.max(...reactorState.zoneActivity.map(z => z.visits));
-
-  list.innerHTML = reactorState.zoneActivity.map(zone => `
-    <div class="reactor-item">
-      <strong>${zone.name}</strong>
-      <div style="flex:1; margin: 0 10px;">
-        <div class="dynamic-progress-bar">
-          <div class="dynamic-progress-fill" style="width:${Math.round((zone.visits / max) * 100)}%; background:${zone.color};"></div>
-        </div>
-      </div>
-      <span>${zone.visits} visits</span>
-    </div>
-  `).join("");
-}
-
-function renderReactorEventLog() {
   const log = document.getElementById("reactor-event-log");
-  if (!log) return;
 
-  log.innerHTML = reactorState.events.map(ev => `
-    <div class="reactor-event-item ${ev.type === "ok" ? "ok" : ""}">
-      <span>${ev.type === "ok" ? "OK" : "!"}</span>
-      <p>${ev.text}</p>
-    </div>
-  `).join("");
+  if (visitors) visitors.textContent = data.visitorsToday;
+  if (active) active.textContent = data.activeSessions;
+  if (uptime) uptime.textContent = data.totalUsers;
+  if (latency) latency.textContent = data.openReports;
+  if (statusLabel) statusLabel.textContent = data.status;
+
+  if (healthList) {
+    const counts = data.storageCounts || [];
+    const maxCount = Math.max(...counts.map((item) => item.count), 1);
+    healthList.innerHTML = counts.map((item) => {
+      const percent = Math.round((item.count / maxCount) * 100);
+      return `
+      <div class="reactor-health-item">
+        <span>${escapeHtml(item.label)}</span>
+        <div class="dynamic-progress-bar"><div class="dynamic-progress-fill" style="width:${percent}%; background:${escapeHtml(item.color)};"></div></div>
+        <small>${item.count}</small>
+      </div>
+    `;
+    }).join("");
+  }
+
+  if (list) {
+    const max = Math.max(...data.zones.map(z => z.visits), 1);
+    list.innerHTML = data.zones.map(zone => `
+      <div class="reactor-item">
+        <strong>${escapeHtml(zone.name)}</strong>
+        <div style="flex:1; margin: 0 10px;">
+          <div class="dynamic-progress-bar">
+            <div class="dynamic-progress-fill" style="width:${Math.round((zone.visits / max) * 100)}%; background:${escapeHtml(zone.color)};"></div>
+          </div>
+        </div>
+        <span>${zone.visits} events</span>
+      </div>
+    `).join("");
+  }
+
+  if (log) {
+    log.innerHTML = data.events.map(ev => `
+      <div class="reactor-event-item ${ev.type === "ok" ? "ok" : ""}">
+        <span>${ev.type === "ok" ? "OK" : "!"}</span>
+        <p>${escapeHtml(ev.text)}</p>
+      </div>
+    `).join("");
+  }
 }
 
 // =========================
@@ -1479,4 +2429,536 @@ function renderSecurityModLog() {
       <p>${item.text}</p>
     </div>
   `).join("");
+}
+
+function initSecurityHubBackend() {
+  loadSecurityReports();
+}
+
+function submitSecurityReportBackend() {
+  const typeEl = document.getElementById("sec-report-type");
+  const targetEl = document.getElementById("sec-report-target");
+  const detailEl = document.getElementById("sec-report-detail");
+  const statusEl = document.getElementById("sec-report-status");
+  if (!typeEl || !detailEl || !statusEl) return;
+
+  const detail = detailEl.value.trim();
+  if (!detail) {
+    statusEl.textContent = "Please fill in the details field before submitting.";
+    statusEl.style.color = "#7f1d1d";
+    return;
+  }
+
+  const target = targetEl ? targetEl.value.trim() : "";
+  const type = typeEl.value;
+  apiRequest("/api/security/reports", {
+    method: "POST",
+    body: JSON.stringify({ type, target, detail })
+  }).then((data) => {
+    securityState.reports = data.overview?.reports || [];
+    securityState.openCount = data.overview?.openCount || 0;
+    securityState.error = "";
+    detailEl.value = "";
+    if (targetEl) targetEl.value = "";
+    statusEl.textContent = "Report submitted and stored on the backend.";
+    statusEl.style.color = "#0f766e";
+    renderSecurityModLogBackend();
+  }).catch((error) => {
+    statusEl.textContent = `Report failed: ${error.message}`;
+    statusEl.style.color = "#7f1d1d";
+  });
+}
+
+function loadSecurityReports() {
+  apiRequest("/api/security/reports")
+    .then((data) => {
+      securityState.reports = data.reports || [];
+      securityState.openCount = data.openCount || 0;
+      securityState.error = "";
+      renderSecurityModLogBackend();
+    })
+    .catch((error) => {
+      securityState.reports = [];
+      securityState.openCount = 0;
+      securityState.error = `Security backend unavailable: ${error.message}`;
+      renderSecurityModLogBackend();
+    });
+}
+
+function renderSecurityModLogBackend() {
+  const countEl = document.getElementById("security-open-count");
+  const log = document.getElementById("security-mod-log");
+  if (countEl) countEl.textContent = securityState.openCount || 0;
+  if (!log) return;
+
+  if (securityState.error) {
+    log.innerHTML = `<div class="security-mod-item"><span>Warn</span><p>${escapeHtml(securityState.error)}</p></div>`;
+    return;
+  }
+  if (!securityState.reports || securityState.reports.length === 0) {
+    log.innerHTML = `<div class="security-mod-item resolved"><span>OK</span><p>No reports stored yet.</p></div>`;
+    return;
+  }
+
+  log.innerHTML = securityState.reports.map(item => {
+    const target = item.target ? ` against ${item.target}` : "";
+    return `
+      <div class="security-mod-item ${item.status === "resolved" ? "resolved" : ""}">
+        <span>${item.status === "resolved" ? "Done" : "Open"}</span>
+        <p>${escapeHtml(item.type)} report${escapeHtml(target)} - ${escapeHtml(item.detail)}</p>
+      </div>
+    `;
+  }).join("");
+}
+
+if (typeof window !== "undefined") {
+  window.submitSecurityReport = submitSecurityReportBackend;
+}
+
+// Electrical Hub (post creator)
+
+const electricalState = {
+  drafts: [],
+  postCount: 0
+};
+ 
+function initElectricalHub() {
+  loadPostsFromBackend();
+  updateElecDraftCount();
+  renderElecDraftList();
+  updateElecPreview();
+}
+ 
+function updateElecPreview() {
+  const tag = document.getElementById("elec-tag-select");
+  const title = document.getElementById("elec-title-input");
+  const body = document.getElementById("elec-body-input");
+  const previewTag = document.getElementById("elec-preview-tag");
+  const previewTitle = document.getElementById("elec-preview-title");
+  const previewBody = document.getElementById("elec-preview-body");
+  if (!tag || !title || !body) return;
+ 
+  if (previewTag) previewTag.textContent = tag.value || "Space";
+  if (previewTitle) previewTitle.textContent = title.value.trim() || "Your heading will appear here.";
+  if (previewBody) previewBody.textContent = body.value.trim() || "Your post body will appear here once you start typing.";
+}
+ 
+function saveElecDraft() {
+  const tag = document.getElementById("elec-tag-select");
+  const title = document.getElementById("elec-title-input");
+  const body = document.getElementById("elec-body-input");
+  const status = document.getElementById("elec-submit-status");
+  if (!title || !body) return;
+ 
+  const titleVal = title.value.trim();
+  const bodyVal = body.value.trim();
+  if (!titleVal && !bodyVal) {
+    if (status) { status.textContent = "Nothing to save — write something first."; status.style.color = "#7f1d1d"; }
+    return;
+  }
+ 
+  electricalState.drafts.unshift({
+    id: Date.now(),
+    tag: tag ? tag.value : "Space",
+    title: titleVal || "(No heading)",
+    body: bodyVal || "(No body)",
+    savedAt: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
+  });
+ 
+  if (status) { status.textContent = "Draft saved."; status.style.color = "#0f766e"; }
+  updateElecDraftCount();
+  renderElecDraftList();
+}
+ 
+async function submitElecPost() {
+  const tag = document.getElementById("elec-tag-select");
+  const title = document.getElementById("elec-title-input");
+  const body = document.getElementById("elec-body-input");
+  const status = document.getElementById("elec-submit-status");
+  if (!title || !body) return;
+ 
+  const titleVal = title.value.trim();
+  const bodyVal = body.value.trim();
+  if (!titleVal) {
+    if (status) { status.textContent = "Add an encryption topic before transmitting."; status.style.color = "#7f1d1d"; }
+    return;
+  }
+  if (!bodyVal) {
+    if (status) { status.textContent = "Write something in the transmission body before sending."; status.style.color = "#7f1d1d"; }
+    return;
+  }
+ 
+  const draftPost = {
+    tag: tag ? tag.value : "Space",
+    title: titleVal,
+    body: bodyVal,
+    authorId: CURRENT_USER_ID,
+    authorName: authedCrewName || "Crewmate",
+    comments: [],
+    upvotes: 0,
+    downvotes: 0,
+    canDelete: false
+  };
+  let newPost;
+  try {
+    newPost = await createPostOnBackend(draftPost);
+    newPost.canDelete = true;
+    postStore.posts.unshift(newPost);
+    postStore.backendReady = true;
+  } catch (error) {
+    console.warn("Create post sync failed:", error.message);
+    if (status) {
+      status.textContent = "Could not transmit. Check that the backend is running, then try again.";
+      status.style.color = "#7f1d1d";
+    }
+    return;
+  }
+  electricalState.postCount++;
+  title.value = "";
+  body.value = "";
+  updateElecPreview();
+  refreshPostViews();
+ 
+  if (status) {
+    status.textContent = `Transmission sent (${newPost.tag} - "${titleVal.slice(0, 40)}${titleVal.length > 40 ? "..." : ""}"). Head to Cafeteria or Weapons to track it.`;
+    status.style.color = "#0f766e";
+  }
+}
+ 
+function loadElecDraft(draftId) {
+  const draft = electricalState.drafts.find(d => d.id === draftId);
+  if (!draft) return;
+  const tag = document.getElementById("elec-tag-select");
+  const title = document.getElementById("elec-title-input");
+  const body = document.getElementById("elec-body-input");
+  if (tag) tag.value = draft.tag;
+  if (title) title.value = draft.title === "(No heading)" ? "" : draft.title;
+  if (body) body.value = draft.body === "(No body)" ? "" : draft.body;
+  updateElecPreview();
+}
+ 
+function deleteElecDraft(draftId) {
+  electricalState.drafts = electricalState.drafts.filter(d => d.id !== draftId);
+  updateElecDraftCount();
+  renderElecDraftList();
+}
+ 
+function updateElecDraftCount() {
+  const el = document.getElementById("electrical-draft-count");
+  if (el) el.textContent = `${electricalState.drafts.length} draft${electricalState.drafts.length !== 1 ? "s" : ""}`;
+}
+ 
+function renderElecDraftList() {
+  const list = document.getElementById("elec-draft-list");
+  if (!list) return;
+  if (electricalState.drafts.length === 0) {
+    list.innerHTML = `<p class="electrical-meta">No drafts saved yet.</p>`;
+    return;
+  }
+  list.innerHTML = electricalState.drafts.map(draft => `
+    <div class="electrical-draft-item">
+      <p><strong>${draft.tag}</strong> — ${draft.title}</p>
+      <span>${draft.savedAt}</span>
+      <button class="dynamic-btn" type="button" onclick="loadElecDraft(${draft.id})" style="padding:4px 10px; font-size:12px;">Load</button>
+      <button class="dynamic-btn" type="button" onclick="deleteElecDraft(${draft.id})" style="padding:4px 10px; font-size:12px;">Delete</button>
+    </div>
+  `).join("");
+}
+
+//O2 (Discover feed)
+
+const o2State = {
+  activeFilter: "new",
+  selectedPostId: null
+};
+ 
+function initO2Hub() {
+  o2State.selectedPostId = null;
+  renderO2Feed();
+  renderO2Detail();
+  updateO2UnseenCount();
+  loadPostsForFeed("new", { unseen: "1" }).catch(() => loadPostsFromBackend());
+}
+ 
+function setO2Filter(filter) {
+  o2State.activeFilter = filter;
+  document.querySelectorAll(".o2-filter-btn").forEach(btn => {
+    btn.classList.toggle("selected", btn.dataset.filter === filter);
+  });
+  renderO2Feed();
+  const feed = filter === "rising" ? "rising" : "new";
+  loadPostsForFeed(feed, { unseen: filter === "random" ? "" : "1" }).catch(() => {});
+}
+ 
+function refreshO2Feed() {
+  getAllPosts().forEach(post => { post.seenByMe = false; });
+  o2State.selectedPostId = null;
+  renderO2Feed();
+  renderO2Detail();
+  updateO2UnseenCount();
+  Promise.allSettled(getAllPosts().map(post => (
+    apiRequest(`/api/posts/${encodeURIComponent(post.id)}/seen`, { method: "DELETE" })
+  ))).catch(error => console.warn("Seen reset failed:", error.message));
+}
+ 
+function getO2SortedPosts() {
+  const unseen = getAllPosts().filter(p => !p.seenByMe);
+  if (o2State.activeFilter === "new") return [...unseen].sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+  if (o2State.activeFilter === "rising") return [...unseen].sort((a, b) => getPostCommentCount(b) - getPostCommentCount(a));
+  if (o2State.activeFilter === "random") return [...unseen].sort(() => Math.random() - 0.5);
+  return unseen;
+}
+ 
+function renderO2Feed() {
+  const list = document.getElementById("o2-feed-list");
+  if (!list) return;
+  const posts = getO2SortedPosts();
+  if (posts.length === 0) {
+    list.innerHTML = `<p class="o2-meta">You've seen everything in this filter. Hit Refresh to reset.</p>`;
+    return;
+  }
+  list.innerHTML = posts.map(post => `
+    <div class="o2-feed-item ${post.id === o2State.selectedPostId ? "selected" : ""}" onclick="selectO2Post(${post.id})">
+      <p class="o2-feed-tag">${post.tag}</p>
+      <p class="o2-feed-title">${post.title}</p>
+    </div>
+  `).join("");
+}
+ 
+function selectO2Post(postId) {
+  o2State.selectedPostId = postId;
+  renderO2Feed();
+  renderO2Detail();
+}
+ 
+function renderO2Detail() {
+  const meta = document.getElementById("o2-selected-meta");
+  const detail = document.getElementById("o2-post-detail");
+  const actions = document.getElementById("o2-post-actions");
+  if (!meta || !detail) return;
+ 
+  const post = getPostById(o2State.selectedPostId);
+  if (!post) {
+    meta.textContent = "Select a post to read.";
+    detail.innerHTML = "<p>Nothing selected yet.</p>";
+    if (actions) actions.style.display = "none";
+    updateDeleteButton("o2-delete-post-btn", null);
+    return;
+  }
+ 
+  meta.textContent = `${post.tag} | ${getPostScoreLabel(post)} | ${getPostCommentCount(post)} comments`;
+  updateDeleteButton("o2-delete-post-btn", post);
+  detail.innerHTML = `
+    <p style="font-weight:bold; margin:0 0 6px;">${post.title}</p>
+    <p style="margin:0; font-size:13px;">${post.body}</p>
+  `;
+  if (actions) actions.style.display = "flex";
+}
+ 
+function o2Vote(direction) {
+  voteOnPost(o2State.selectedPostId, direction);
+  syncVoteToBackend(o2State.selectedPostId, direction);
+  renderO2Detail();
+  renderO2Feed();
+}
+ 
+function o2MarkSeen() {
+  if (o2State.selectedPostId !== null) {
+    const post = getPostById(o2State.selectedPostId);
+    if (post) post.seenByMe = true;
+    apiRequest(`/api/posts/${encodeURIComponent(o2State.selectedPostId)}/seen`, { method: "POST" })
+      .catch(error => console.warn("Seen sync failed:", error.message));
+    o2State.selectedPostId = null;
+    renderO2Feed();
+    renderO2Detail();
+    updateO2UnseenCount();
+  }
+}
+ 
+function updateO2UnseenCount() {
+  const el = document.getElementById("o2-unseen-count");
+  if (el) el.textContent = getAllPosts().filter(p => !p.seenByMe).length;
+}
+
+
+// Weapons (Controversial feed)
+
+const weaponsState = {
+  activeSort: "top",
+  selectedPostId: null
+};
+ 
+function initWeaponsHub() {
+  weaponsState.selectedPostId = null;
+  renderWeaponsFeed();
+  renderWeaponsDetail();
+  loadPostsForFeed("top").catch(() => loadPostsFromBackend());
+}
+ 
+function setWeaponsSort(sort) {
+  weaponsState.activeSort = sort;
+  document.querySelectorAll(".weapons-sort-btn").forEach(btn => {
+    btn.classList.toggle("selected", btn.dataset.sort === sort);
+  });
+  renderWeaponsFeed();
+  const feed = sort === "controversial" ? "controversial" : sort === "rising" ? "rising" : sort === "new" ? "new" : "top";
+  loadPostsForFeed(feed).catch(() => {});
+}
+ 
+function getWeaponsSortedPosts() {
+  const posts = [...getAllPosts()];
+  if (weaponsState.activeSort === "top") return posts.sort((a, b) => (b.upvotes + getPostCommentCount(b) * 2) - (a.upvotes + getPostCommentCount(a) * 2));
+  if (weaponsState.activeSort === "rising") return posts.sort((a, b) => getPostScore(b) - getPostScore(a));
+  if (weaponsState.activeSort === "new") return posts.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+  if (weaponsState.activeSort === "controversial") {
+    return posts.sort((a, b) => {
+      const ratioA = Math.min(a.upvotes, a.downvotes) / Math.max(a.upvotes + a.downvotes, 1);
+      const ratioB = Math.min(b.upvotes, b.downvotes) / Math.max(b.upvotes + b.downvotes, 1);
+      return ratioB - ratioA;
+    });
+  }
+  return posts;
+}
+ 
+function renderWeaponsFeed() {
+  const list = document.getElementById("weapons-feed-list");
+  if (!list) return;
+  const posts = getWeaponsSortedPosts();
+  list.innerHTML = posts.map(post => {
+    const isControversial = weaponsState.activeSort === "controversial";
+    const badge = isControversial ? `<span class="weapons-trend-badge">Split</span>` : "";
+    return `
+      <div class="weapons-feed-item ${post.id === weaponsState.selectedPostId ? "selected" : ""}" onclick="selectWeaponsPost(${post.id})">
+        <p class="weapons-feed-tag">${post.tag}</p>
+        <p class="weapons-feed-title">${badge}${post.title}</p>
+        <p class="weapons-feed-meta">${getPostScoreLabel(post)} | ${post.downvotes} down | ${getPostCommentCount(post)} comments</p>
+      </div>
+    `;
+  }).join("");
+}
+ 
+function selectWeaponsPost(postId) {
+  weaponsState.selectedPostId = postId;
+  renderWeaponsFeed();
+  renderWeaponsDetail();
+}
+ 
+function renderWeaponsDetail() {
+  const meta = document.getElementById("weapons-selected-meta");
+  const detail = document.getElementById("weapons-post-detail");
+  const actions = document.getElementById("weapons-post-actions");
+  if (!meta || !detail) return;
+ 
+  const post = getPostById(weaponsState.selectedPostId);
+  if (!post) {
+    meta.textContent = "Select a post to expand.";
+    detail.innerHTML = "<p>Nothing selected.</p>";
+    if (actions) actions.style.display = "none";
+    updateDeleteButton("weapons-delete-post-btn", null);
+    return;
+  }
+ 
+  meta.textContent = `${post.tag} | ${getPostScoreLabel(post)} | ${post.downvotes} down | ${getPostCommentCount(post)} comments`;
+  updateDeleteButton("weapons-delete-post-btn", post);
+  detail.innerHTML = `
+    <p style="font-weight:bold; margin:0 0 6px;">${post.title}</p>
+    <p style="margin:0; font-size:13px;">${post.body}</p>
+  `;
+  if (actions) actions.style.display = "flex";
+}
+ 
+function weaponsVote(direction) {
+  voteOnPost(weaponsState.selectedPostId, direction);
+  syncVoteToBackend(weaponsState.selectedPostId, direction);
+  renderWeaponsDetail();
+  renderWeaponsFeed();
+}
+
+// Storage Terminal Hub (Saved Posts Manifest)
+const storageState = {
+  selectedPostId: null
+};
+
+function initStorageHub() {
+  loadPostsFromBackend();
+  storageState.selectedPostId = null;
+  renderStorageSavedList();
+  renderStorageDetail();
+  updateStorageSavedCount();
+}
+
+function updateStorageSavedCount() {
+  const el = document.getElementById("storage-saved-count");
+  const savedCount = getSavedPosts().length;
+  if (el) el.textContent = `${savedCount} item${savedCount === 1 ? "" : "s"}`;
+}
+
+function renderStorageSavedList() {
+  const list = document.getElementById("storage-saved-list");
+  if (!list) return;
+
+  const items = getSavedPosts();
+  if (items.length === 0) {
+    list.innerHTML = `<p class="storage-meta">No saved posts found in data banks.</p>`;
+    return;
+  }
+
+  list.innerHTML = items.map(post => `
+    <div class="storage-saved-item ${post.id === storageState.selectedPostId ? "selected" : ""}" onclick="selectStoragePost(${post.id})">
+      <p class="storage-meta">${post.tag || "Space"} | ${getPostScoreLabel(post)}</p>
+      <p><strong>${post.title}</strong></p>
+    </div>
+  `).join("");
+}
+
+function selectStoragePost(postId) {
+  storageState.selectedPostId = postId;
+  renderStorageSavedList();
+  renderStorageDetail();
+}
+
+function renderStorageDetail() {
+  const meta = document.getElementById("storage-selected-meta");
+  const detail = document.getElementById("storage-post-detail");
+  const actions = document.getElementById("storage-post-actions");
+  if (!meta || !detail || !actions) return;
+
+  const post = getPostById(storageState.selectedPostId);
+  if (!post) {
+    meta.textContent = "Select a saved post to view details.";
+    detail.innerHTML = "<p>No saved transmission selected.</p>";
+    actions.style.display = "none";
+    return;
+  }
+
+  meta.textContent = `${post.tag || "Space"} | ${getPostScoreLabel(post)}`;
+  detail.innerHTML = `
+    <p style="font-weight:bold; margin:0 0 6px;">${post.title}</p>
+    <p style="margin:0; font-size:13px; text-transform:none;">${post.body || "No details available."}</p>
+  `;
+  actions.style.display = "block";
+}
+
+function unsavePostFromStorage() {
+  if (storageState.selectedPostId !== null) {
+    unsavePost(storageState.selectedPostId);
+    storageState.selectedPostId = null;
+    refreshPostViews();
+  }
+}
+
+function saveActivePostToStorage() {
+  if (cafeteriaState.selectedPostId !== null) {
+    savePost(cafeteriaState.selectedPostId);
+    refreshPostViews();
+    alert("Transmission bookmarked in Storage data banks.");
+  }
+}
+
+function saveWeaponsPostToStorage() {
+  if (weaponsState.selectedPostId !== null) {
+    savePost(weaponsState.selectedPostId);
+    refreshPostViews();
+    alert("Transmission bookmarked in Storage data banks.");
+  }
 }

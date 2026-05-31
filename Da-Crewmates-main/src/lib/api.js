@@ -30,3 +30,56 @@ export function resetPassword(payload) {
     body: JSON.stringify(payload),
   });
 }
+
+export function getPosts(params = {}) {
+  const query = new URLSearchParams();
+  Object.entries(params).forEach(([key, value]) => {
+    if (value !== undefined && value !== null && value !== "") query.set(key, value);
+  });
+  const suffix = query.toString() ? `?${query}` : "";
+  return request(`/api/posts${suffix}`);
+}
+
+export function createPost(payload) {
+  return request("/api/posts", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+}
+
+export function votePost(postId, type) {
+  return request(`/api/posts/${encodeURIComponent(postId)}/vote`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ type }),
+  });
+}
+
+export function savePost(postId) {
+  return request(`/api/posts/${encodeURIComponent(postId)}/save`, { method: "POST" });
+}
+
+export function unsavePost(postId) {
+  return request(`/api/posts/${encodeURIComponent(postId)}/save`, { method: "DELETE" });
+}
+
+export function markPostSeen(postId) {
+  return request(`/api/posts/${encodeURIComponent(postId)}/seen`, { method: "POST" });
+}
+
+export function getSavedPosts() {
+  return request("/api/saved-posts");
+}
+
+export function getPostComments(postId) {
+  return request(`/api/posts/${encodeURIComponent(postId)}/comments`);
+}
+
+export function createPostComment(postId, content) {
+  return request(`/api/posts/${encodeURIComponent(postId)}/comments`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ content }),
+  });
+}

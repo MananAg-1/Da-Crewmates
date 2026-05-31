@@ -2,7 +2,7 @@
 
 @font-face {
   font-family: "InYourFaceJoffrey";
-  src: url("/assets/fonts/In-your-face-joffrey.ttf") format("truetype");
+  src: url("../game/Font.ttf") format("truetype");
   font-weight: 400;
   font-style: normal;
   font-display: swap;
@@ -1684,7 +1684,7 @@ h1 {
 /* --- TEAMMATE'S WALK GAMEPLAY & HUD STYLES --- */
 @font-face {
   font-family: 'AmongUsFont';
-  src: url('/Font.ttf') format('truetype');
+  src: url('../game/Font.ttf') format('truetype');
 }
 
 #game-container {
@@ -1713,7 +1713,7 @@ h1 {
 .crewmate-walk {
   width: 82px;
   height: 80px;
-  background-image: url('/assets/Sprites.png');
+  background-image: url('../game/Assets/Sprites.png');
   background-repeat: no-repeat;
   background-position: 0px 0px;
   background-size: 572px auto;
@@ -1793,7 +1793,7 @@ h1 {
   border: 3px solid #ffffff;
   border-radius: 10px;
   box-shadow: 0 4px 12px rgba(0,0,0,0.5);
-  background-image: url('/assets/Map button.png');
+  background-image: url('../game/Assets/Map button.png');
   background-size: cover;
   background-position: center;
   transition: transform 0.1s ease;

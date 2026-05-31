@@ -1,0 +1,33 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 540">
+  <defs>
+    <radialGradient id="nebula" cx="35%" cy="38%" r="65%">
+      <stop offset="0%" stop-color="#7ee7ff"/>
+      <stop offset="35%" stop-color="#7b4dff"/>
+      <stop offset="70%" stop-color="#171934"/>
+      <stop offset="100%" stop-color="#050713"/>
+    </radialGradient>
+    <filter id="glow">
+      <feGaussianBlur stdDeviation="5" result="blur"/>
+      <feMerge>
+        <feMergeNode in="blur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+  </defs>
+  <rect width="960" height="540" fill="url(#nebula)"/>
+  <g fill="#ffffff" filter="url(#glow)">
+    <circle cx="115" cy="82" r="3"/>
+    <circle cx="211" cy="140" r="2"/>
+    <circle cx="348" cy="78" r="2"/>
+    <circle cx="511" cy="118" r="3"/>
+    <circle cx="783" cy="92" r="2"/>
+    <circle cx="872" cy="174" r="3"/>
+    <circle cx="154" cy="402" r="2"/>
+    <circle cx="401" cy="454" r="3"/>
+    <circle cx="692" cy="390" r="2"/>
+    <circle cx="814" cy="460" r="2"/>
+    <circle cx="542" cy="312" r="2"/>
+    <circle cx="270" cy="284" r="3"/>
+  </g>
+  <text x="48" y="474" fill="#dff8ff" font-family="Arial, sans-serif" font-size="30" letter-spacing="2">APOD OFFLINE CACHE</text>
+</svg>

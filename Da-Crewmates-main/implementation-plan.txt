@@ -1,0 +1,37 @@
+Da Crewmates - Complete Game-First Implementation List
+
+1. Keep game/ as primary and preserve room-based core loop.
+2. Keep src/ auth/entry only; Explore Mode remains inside existing game flow.
+3. Lock post data source to backend only (remove all local-only post fallback paths).
+4. Ensure two-account post consistency (same post visible across accounts immediately).
+5. Keep owner-only delete with server-authoritative 403 for non-owner.
+6. Show delete control only from backend canDelete=true.
+7. Preserve signed score behavior (likes can go negative and display as +/-N).
+8. Keep follows model as secondary discovery/social signal (do not remove current endpoints).
+9. Add friend_requests table (pending|accepted|declined|canceled).
+10. Add friendships table with unique unordered user pair.
+11. Add Da Crewmates APIs: send, accept, decline, cancel, list me (friends, incoming, outgoing, followers, following, suggestions).
+12. Block self-requests and duplicate pending requests.
+13. Auto-create notification entries for friend request events.
+14. Add in-game tablet Da Crewmates mode with tabs: Friends / Requests / Following / Followers / Suggestions.
+15. Add actions in tablet: Send Request, Accept, Decline, Cancel, Remove Friend, Follow/Unfollow.
+16. Add session-loop tables: sessions, daily_objectives, objective_completions.
+17. Add objective APIs: start session, fetch active session, list today’s objectives, complete objective.
+18. Generate 2–3 objectives/session (read posts, comment once, handle one crewmate request).
+19. Store daily reset + streak server-side.
+20. Add session-end nudge (stop/switch room) after objective completion.
+21. Add SSE realtime stream endpoint for social events only.
+22. Emit realtime events: post created, vote changed, comment created, friend request created/accepted, notification created.
+23. Wire tablet feed/cards to realtime updates with lightweight batching.
+24. Keep identity deterministic on every request (x-user-id, x-display-name, server resolve + provision).
+25. Add DB indexes for friend request lookup and friendship pair uniqueness.
+26. Use additive migrations only (CREATE IF NOT EXISTS, ALTER ADD COLUMN when missing).
+27. No destructive migration, no data reset.
+28. Tablet controls UX refactor: one active mode at a time (no stacked multi-panel clutter).
+29. Tablet controls use segmented top nav + sticky action footer.
+30. Tablet controls cap primary CTAs to max 3; overflow actions go to compact menu.
+31. Tablet controls show state badges (new, pending, remaining) instead of extra rows.
+32. Tablet controls keep minimal transitions only (panel slide/fade), no heavy ambient animation.
+33. Tablet controls enforce touch targets >=44px and compact readable typography.
+34. Add explicit backend error states in tablet (no ghost success UI).
+35. Regression tests: two-account visibility/delete auth, negative voting, comments, save/unsave, crewmate lifecycle, follows compatibility, objective reset, SSE cross-tab updates.

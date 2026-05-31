@@ -123,11 +123,11 @@
       </div>
       <div class="reactor-stat-card">
         <span id="reactor-uptime">99.9%</span>
-        <small>Uptime</small>
+        <small>Registered Crew</small>
       </div>
       <div class="reactor-stat-card">
         <span id="reactor-latency">42ms</span>
-        <small>Avg Latency</small>
+        <small>Open Tickets</small>
       </div>
     </div>
 
@@ -138,7 +138,7 @@
       </section>
 
       <section class="reactor-panel">
-        <h4>System Health</h4>
+        <h4>Storage Counts</h4>
         <div class="reactor-health-list">
           <div class="reactor-health-item">
             <span>API</span>
@@ -254,11 +254,72 @@
 </div>
 
 <div data-room="efa94a">
-  <p>Compose Fleet Transmission:</p>
-  <label>Encryption Topic:</label>
-  <input type="text" class="dynamic-input" placeholder="Enter transmission heading...">
-  <textarea class="dynamic-input" style="height:60px;" placeholder="Type encrypted text..."></textarea>
+  <div class="electrical-terminal">
+    <div class="electrical-header">
+      <div>
+        <p class="electrical-kicker">Electrical</p>
+        <h3>Post Creation</h3>
+      </div>
+      <div class="electrical-status-pill">
+        <span id="electrical-status-dot"></span>
+        <span id="electrical-draft-count">0 drafts</span>
+      </div>
+    </div>
+ 
+    <div class="electrical-layout">
+      <section class="electrical-panel">
+        <h4>Compose</h4>
+        <div class="electrical-form">
+          <label for="elec-tag-select">Topic Tag</label>
+          <select id="elec-tag-select" class="navhelp-select" onchange="updateElecPreview()">
+            <option value="Space">Space</option>
+            <option value="Science">Science</option>
+            <option value="Tech">Tech</option>
+            <option value="Discussion">Discussion</option>
+            <option value="Other">Other</option>
+          </select>
+ 
+          <label for="elec-title-input">Encryption Topic</label>
+          <input id="elec-title-input" class="dynamic-input" type="text" maxlength="80" placeholder="Short, descriptive heading..." oninput="updateElecPreview()">
+ 
+          <label for="elec-body-input">Transmission</label>
+          <textarea id="elec-body-input" class="dynamic-input" style="height:90px;" placeholder="Write your post here..." oninput="updateElecPreview()"></textarea>
+ 
+          <div class="navhelp-actions">
+            <button class="dynamic-btn" type="button" onclick="saveElecDraft()">Save Draft</button>
+            <button class="dynamic-btn" type="button" onclick="submitElecPost()">Transmit</button>
+          </div>
+          <p id="elec-submit-status" class="electrical-meta">No transmission sent yet.</p>
+        </div>
+      </section>
+ 
+      <section class="electrical-panel">
+        <h4>Live Preview</h4>
+        <div id="elec-preview-card" class="electrical-preview-card">
+          <p class="electrical-preview-tag" id="elec-preview-tag">Space</p>
+          <p class="electrical-preview-title" id="elec-preview-title">Your heading will appear here.</p>
+          <p class="electrical-preview-body" id="elec-preview-body">Your post body will appear here once you start typing.</p>
+        </div>
+ 
+        <h4 style="margin-top:12px;">Routing Guide</h4>
+        <div class="electrical-route-list">
+          <div class="electrical-route-item"><span>Cafeteria</span><p>Ranked feed — appears sorted by likes after posting.</p></div>
+          <div class="electrical-route-item"><span>O2</span><p>Discover — shown to crew who haven't seen it yet.</p></div>
+          <div class="electrical-route-item"><span>Weapons</span><p>Trending — surfaces here if it picks up momentum fast.</p></div>
+        </div>
+      </section>
+    </div>
+ 
+    <section class="electrical-panel">
+      <h4>Drafts</h4>
+      <div id="elec-draft-list" class="electrical-draft-list">
+        <p class="electrical-meta">No drafts saved yet.</p>
+      </div>
+    </section>
+  </div>
 </div>
+
+
 
 <div data-room="8f8b66">
   <div class="cafeteria-terminal">
@@ -275,7 +336,7 @@
       <section class="cafeteria-panel">
         <h4>APOD</h4>
         <div class="cafeteria-apod-card">
-          <img id="cafeteria-apod-image" src="https://apod.nasa.gov/apod/image/1901/IC1805_Abolfath_3952.jpg" alt="Astronomy Picture of the Day style preview">
+          <img id="cafeteria-apod-image" src="Assets/apod-fallback.svg" alt="Astronomy Picture of the Day style preview">
           <div>
             <p id="cafeteria-apod-title" class="cafeteria-apod-title">Heart Nebula</p>
             <p id="cafeteria-apod-meta" class="cafeteria-meta">Astronomy Picture of the Day inspired card</p>
@@ -304,6 +365,8 @@
         <div class="cafeteria-actions">
           <button class="dynamic-btn" type="button" onclick="voteOnCafeteriaPost('up')">Upvote</button>
           <button class="dynamic-btn" type="button" onclick="voteOnCafeteriaPost('down')">Downvote</button>
+          <button class="dynamic-btn" type="button" onclick="saveActivePostToStorage()">Save Post</button>
+          <button class="dynamic-btn danger-btn" id="cafeteria-delete-post-btn" type="button" onclick="deleteActivePost('cafeteria')" style="display:none;">Delete Post</button>
         </div>
         <label for="cafeteria-comment-input">Add Comment</label>
         <textarea id="cafeteria-comment-input" class="dynamic-input" style="height:72px;" placeholder="Write a comment..."></textarea>
@@ -314,22 +377,112 @@
 </div>
 
 <div data-room="00ff00">
-  <p>Life Support Scrubbers:</p>
-  <div class="dynamic-card">CO2 Filter Status: Nominal</div>
-  <div class="dynamic-card" style="margin-top:6px;">
-    Air Quality Index: 99%
-    <div class="dynamic-progress-bar"><div class="dynamic-progress-fill" style="width:99%; background:#2ecc71;"></div></div>
+  <div class="o2-terminal">
+    <div class="o2-header">
+      <div>
+        <p class="o2-kicker">O2 Zone</p>
+        <h3>Discover</h3>
+      </div>
+      <div class="o2-score">
+        <span id="o2-unseen-count">—</span>
+        <small>Unseen Posts</small>
+      </div>
+    </div>
+ 
+    <div class="o2-filter-row">
+      <button class="o2-filter-btn selected" type="button" data-filter="new" onclick="setO2Filter('new')">New to You</button>
+      <button class="o2-filter-btn" type="button" data-filter="rising" onclick="setO2Filter('rising')">Rising</button>
+      <button class="o2-filter-btn" type="button" data-filter="random" onclick="setO2Filter('random')">Random</button>
+      <button class="dynamic-btn" type="button" onclick="refreshO2Feed()" style="margin-left:auto;">Refresh</button>
+    </div>
+ 
+    <div class="o2-layout">
+      <section class="o2-panel">
+        <h4>Discover Feed</h4>
+        <div id="o2-feed-list" class="o2-feed-list"></div>
+      </section>
+ 
+      <section class="o2-panel">
+        <h4>Selected Post</h4>
+        <p id="o2-selected-meta" class="o2-meta">Select a post to read.</p>
+        <div id="o2-post-detail" class="o2-post-detail">
+          <p>Nothing selected yet.</p>
+        </div>
+        <div id="o2-post-actions" class="o2-post-actions" style="display:none;">
+          <button class="dynamic-btn" type="button" onclick="o2Vote('up')">Upvote</button>
+          <button class="dynamic-btn" type="button" onclick="o2Vote('down')">Downvote</button>
+          <button class="dynamic-btn" type="button" onclick="o2MarkSeen()">Mark Seen</button>
+          <button class="dynamic-btn danger-btn" id="o2-delete-post-btn" type="button" onclick="deleteActivePost('o2')" style="display:none;">Delete Post</button>
+        </div>
+      </section>
+    </div>
+ 
+    <section class="o2-panel">
+      <h4>Why You're Seeing This</h4>
+      <div class="o2-note-grid">
+        <div class="o2-note"><span>01</span><p>Posts are ranked by recency and crew engagement, weighted away from your interaction history.</p></div>
+        <div class="o2-note"><span>02</span><p>No repeats — anything you've liked, commented on, or marked seen is filtered out.</p></div>
+        <div class="o2-note"><span>03</span><p>Unlike Cafeteria, Discover is personalised. The same feed looks different for every crewmate.</p></div>
+      </div>
+    </section>
   </div>
 </div>
 
+
 <div data-room="0000ff">
-  <p>Defense Grid Capacitors:</p>
-  <div class="dynamic-card">Laser Temperature: Cool</div>
-  <div class="dynamic-card" style="margin-top:6px;">
-    Shield Array: Charged
-    <div class="dynamic-progress-bar"><div class="dynamic-progress-fill" style="width:100%; background:#e74c3c;"></div></div>
+  <div class="weapons-terminal">
+    <div class="weapons-header">
+      <div>
+        <p class="weapons-kicker">Weapons Bay</p>
+        <h3>Trending</h3>
+      </div>
+      <div class="weapons-heat-pill">
+        <span id="weapons-heat-dot"></span>
+        <span id="weapons-heat-label">Feed Hot</span>
+      </div>
+    </div>
+ 
+    <div class="weapons-sort-row">
+      <button class="weapons-sort-btn selected" type="button" data-sort="top" onclick="setWeaponsSort('top')">Top</button>
+      <button class="weapons-sort-btn" type="button" data-sort="rising" onclick="setWeaponsSort('rising')">Relevance</button>
+      <button class="weapons-sort-btn" type="button" data-sort="new" onclick="setWeaponsSort('new')">Newest</button>
+      <button class="weapons-sort-btn" type="button" data-sort="controversial" onclick="setWeaponsSort('controversial')">Controversial</button>
+    </div>
+ 
+    <div class="weapons-layout">
+      <section class="weapons-panel">
+        <h4>Trending Now</h4>
+        <div id="weapons-feed-list" class="weapons-feed-list"></div>
+      </section>
+ 
+      <section class="weapons-panel">
+        <h4>Post Detail</h4>
+        <p id="weapons-selected-meta" class="weapons-meta">Select a post to expand.</p>
+        <div id="weapons-post-detail" class="weapons-post-detail">
+          <p>Nothing selected.</p>
+        </div>
+        <div id="weapons-post-actions" class="weapons-post-actions" style="display:none;">
+          <button class="dynamic-btn" type="button" onclick="weaponsVote('up')">Upvote</button>
+          <button class="dynamic-btn" type="button" onclick="weaponsVote('down')">Downvote</button>
+          <button class="dynamic-btn" type="button" onclick="saveWeaponsPostToStorage()">Save Post</button>
+          <button class="dynamic-btn danger-btn" id="weapons-delete-post-btn" type="button" onclick="deleteActivePost('weapons')" style="display:none;">Delete Post</button>
+        </div>
+      </section>
+    </div>
+ 
+    <section class="weapons-panel">
+      <h4>Sort Mode Guide</h4>
+      <div class="weapons-guide-grid">
+        <div class="weapons-guide-item"><strong>Top</strong><p>Highest total engagement right now — upvotes plus comments weighted by recency.</p></div>
+        <div class="weapons-guide-item"><strong>Relevance</strong><p>Matched to your zone activity — posts in categories you visit most surface higher.</p></div>
+        <div class="weapons-guide-item"><strong>Newest</strong><p>Strict chronological order. Use this to catch fresh posts before they hit the top.</p></div>
+        <div class="weapons-guide-item"><strong>Controversial</strong><p>High interaction, split votes. Surfaces active debates with roughly equal up and down counts.</p></div>
+      </div>
+    </section>
   </div>
 </div>
+ 
+
 
 <div data-room="ff0000">
   <div class="navhelp-terminal">
@@ -420,42 +573,73 @@
 </div>
 
 <div data-room="00ffff">
-  <div class="comm-terminal">
-    <div class="comm-header">
+  <div class="friends-terminal">
+    <div class="friends-header">
       <div>
-        <p class="comm-kicker">Communications</p>
-        <h3>DMs and Alerts</h3>
+        <p class="friends-kicker">Da Crewmates</p>
+        <h3>Crew Network</h3>
+      </div>
+      <div id="friends-error-banner" class="friends-error-banner" style="display: none;"></div>
+    </div>
+    
+    <div class="friends-tabs-nav">
+      <button class="friends-tab-btn active" data-tab="friends" type="button" onclick="switchFriendsTab('friends')">Friends <span id="badge-friends" class="state-badge">0</span></button>
+      <button class="friends-tab-btn" data-tab="requests" type="button" onclick="switchFriendsTab('requests')">Requests <span id="badge-requests" class="state-badge">0</span></button>
+      <button class="friends-tab-btn" data-tab="suggestions" type="button" onclick="switchFriendsTab('suggestions')">Suggestions</button>
+      <button class="friends-tab-btn" data-tab="following" type="button" onclick="switchFriendsTab('following')">Following</button>
+      <button class="friends-tab-btn" data-tab="followers" type="button" onclick="switchFriendsTab('followers')">Followers</button>
+      <button class="friends-tab-btn" data-tab="messages" type="button" onclick="switchFriendsTab('messages')">Messages <span id="badge-messages" class="state-badge">0</span></button>
+      <button class="friends-tab-btn" data-tab="objectives" type="button" onclick="switchFriendsTab('objectives')">Daily Objectives <span data-realtime-badge class="state-badge">Offline</span></button>
+    </div>
+
+    <div class="friends-tab-content">
+      <div id="friends-list-container" class="friends-list-container">
+        <p class="friends-empty-msg">Loading crew network...</p>
       </div>
     </div>
-    <div class="comm-layout">
-      <section class="comm-panel">
-        <h4>Direct Messages</h4>
-        <div id="comm-dm-list" class="comm-dm-list"></div>
-      </section>
-      <section class="comm-panel">
-        <h4>Thread</h4>
-        <p id="comm-thread-meta" class="cafeteria-meta">Select a DM thread to view messages.</p>
-        <div id="comm-thread-view" class="comm-thread-view">
-          <p>No thread selected.</p>
-        </div>
-        <div class="comm-compose">
-          <label for="comm-compose-input">Quick Reply</label>
-          <textarea id="comm-compose-input" class="dynamic-input" style="height:64px;" placeholder="Write a reply (local demo only)..."></textarea>
-          <button class="dynamic-btn" type="button" onclick="addCommReply()">Send Reply</button>
-        </div>
-      </section>
+
+    <div id="friends-action-footer" class="friends-action-footer">
+      <div class="selected-crewmate-summary">
+        <p id="friends-selected-name">No crewmate selected</p>
+        <p id="friends-selected-status"></p>
+      </div>
+      <div id="friends-footer-actions" class="friends-footer-actions">
+        <!-- Action buttons loaded dynamically -->
+      </div>
     </div>
-    <section class="comm-panel">
-      <h4>Alerts</h4>
-      <div id="comm-alert-list" class="comm-alert-list"></div>
-    </section>
   </div>
 </div>
 
 <div data-room="efa9fa">
-  <p>Cargo Bay Inventory Logs:</p>
-  <div class="dynamic-card">Hydraulic Crane Status: Idle</div>
-  <div class="dynamic-card" style="margin-top:6px;">Reserve Ration Vaults: Secure (100%)</div>
+  <div class="storage-terminal">
+    <div class="storage-header">
+      <div>
+        <p class="storage-kicker">Storage Zone</p>
+        <h3>Saved Transmissions</h3>
+      </div>
+      <div class="storage-status-pill">
+        <span id="storage-saved-count">0 items</span>
+      </div>
+    </div>
+
+    <section class="storage-panel">
+      <h4>Saved Feeds</h4>
+      <div id="storage-saved-list" class="storage-saved-list">
+        <p class="storage-meta">No saved posts found in data banks.</p>
+      </div>
+    </section>
+
+    <section class="storage-panel" id="storage-detail-section" style="margin-top:12px;">
+      <h4>Selected Saved Post</h4>
+      <p id="storage-selected-meta" class="storage-meta">Select a saved post to view details.</p>
+      <div id="storage-post-detail" class="storage-post-detail">
+        <p>No saved transmission selected.</p>
+      </div>
+      <div id="storage-post-actions" class="storage-post-actions" style="display:none; margin-top:12px;">
+        <button class="dynamic-btn" type="button" onclick="unsavePostFromStorage()">Remove Bookmark</button>
+      </div>
+    </section>
+  </div>
 </div>
 
 <div data-room="636b2f">
@@ -526,5 +710,29 @@
         <div id="admin-checklist" class="admin-checklist"></div>
       </section>
     </div>
+
+    <section class="admin-panel">
+      <div class="admin-crewmates-header">
+        <div>
+          <h4>Da Crewmates</h4>
+          <p id="admin-crewmates-summary" class="admin-meta">Loading crew network...</p>
+        </div>
+        <button class="dynamic-btn" type="button" onclick="loadAdminCrewmates()">Refresh</button>
+      </div>
+      <div class="admin-crewmates-grid">
+        <div>
+          <h5>Following</h5>
+          <div id="admin-following-list" class="admin-crewmate-list"></div>
+        </div>
+        <div>
+          <h5>Followed By</h5>
+          <div id="admin-followers-list" class="admin-crewmate-list"></div>
+        </div>
+        <div>
+          <h5>Find Crewmates</h5>
+          <div id="admin-suggestions-list" class="admin-crewmate-list"></div>
+        </div>
+      </div>
+    </section>
   </div>
 </div>
