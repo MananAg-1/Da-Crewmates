@@ -17,7 +17,7 @@ Useful endpoints:
 ```txt
 GET  /api/health
 GET  /api/users/me
-GET  /api/posts?feed=new|top|rising|controversial&tag=Space&unseen=1
+GET  /api/posts?feed=new|top|rising|controversial&tag=Astrophysics&unseen=1
 POST /api/posts
 DELETE /api/posts/:id
 POST /api/posts/:id/save
@@ -43,7 +43,7 @@ Post payload:
 {
   "title": "Short transmission title",
   "body": "Full post body",
-  "tag": "Space",
+  "tag": "Astrophysics",
   "roomId": "cafeteria"
 }
 ```
@@ -57,7 +57,7 @@ Post response shape:
   "authorName": "DevSpace Crew",
   "title": "Short transmission title",
   "body": "Full post body",
-  "tag": "Space",
+  "tag": "Astrophysics",
   "roomId": "cafeteria",
   "score": 3,
   "upvotes": 4,

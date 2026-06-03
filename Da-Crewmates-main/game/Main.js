@@ -382,6 +382,7 @@ const terminalContentRegistry = {
 
       terminalTitle.innerText = zone.title || zone.name;
       terminalBody.innerHTML = renderDynamicZoneContent(hexKey);
+      trackRoomVisit(hexKey, zone);
       if (hexKey === "8f8b66") {
         initCafeteriaBoard();
         loadCafeteriaApod();
@@ -412,6 +413,27 @@ const terminalContentRegistry = {
       appView.classList.add('blur-gameplay');
       terminalOverlay.classList.remove('hidden');
       zonePrompt.classList.remove('visible'); 
+    }
+
+    function roomIdForZone(hexKey, zone) {
+      return String(zone?.title || hexKey || "room")
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, "-")
+        .replace(/^-+|-+$/g, "") || "room";
+    }
+
+    function trackRoomVisit(hexKey, zone) {
+      const roomId = roomIdForZone(hexKey, zone);
+      const roomName = zone?.title || "Station Room";
+      apiRequest("/api/rooms/visit", {
+        method: "POST",
+        body: JSON.stringify({ roomId, roomName })
+      })
+        .then(() => {
+          if (document.getElementById("medbay-stat-grid")) loadMedbayAnalytics();
+          if (document.getElementById("reactor-stat-grid")) initReactorHub();
+        })
+        .catch(error => console.warn("Room visit sync failed:", error.message));
     }
 
     function closeTerminal() {
@@ -511,167 +533,146 @@ const postStore = {
   nextId: 300,
   backendReady: false,
   isLoading: false,
-  posts: [
-    {
-      id: 1,
-      tag: "Space",
-      title: "Which planetary mission gave the biggest science return in the last decade?",
-      body: "Consider mission duration, instrument quality, open data access, and how much each mission changed classroom-level understanding of planets and moons.",
-      authorId: "crew-system",
-      createdAt: "2026-05-29T10:00:00.000Z",
-      upvotes: 1242,
-      downvotes: 28,
-      comments: ["Anon: Cassini transformed Saturn science across multiple fields.", "Anon: Juno data reshaped our understanding of Jupiter's interior."],
-      savedByMe: true,
-      seenByMe: false
-    },
-    {
-      id: 2,
-      tag: "Space",
-      title: "What is one space fact that sounds impossible but is well established?",
-      body: "Share one verified observation and include a short explanation for why it happens physically, so new readers can follow without deep math.",
-      authorId: "crew-system",
-      createdAt: "2026-05-29T09:00:00.000Z",
-      upvotes: 987,
-      downvotes: 39,
-      comments: ["Anon: A day on Venus is longer than its year due to slow retrograde rotation.", "Anon: Time dilation from gravity is measurable with atomic clocks."],
-      savedByMe: false,
-      seenByMe: false
-    },
-    {
-      id: 3,
-      tag: "Space",
-      title: "Which unresolved question in astronomy should get priority funding?",
-      body: "Pick one major open problem and argue from impact: dark matter, early galaxy formation, exoplanet atmospheres, or something else.",
-      authorId: "crew-system",
-      createdAt: "2026-05-29T08:00:00.000Z",
-      upvotes: 1089,
-      downvotes: 87,
-      comments: ["Anon: Exoplanet atmosphere chemistry could change the search for life.", "Anon: Dark matter constraints still affect almost every cosmology model."],
-      savedByMe: true,
-      seenByMe: false
-    },
-    {
-      id: 4,
-      tag: "Space",
-      title: "How should we balance human spaceflight vs robotic exploration budgets?",
-      body: "Discuss scientific output, risk, public engagement, and long-term infrastructure. Try comparing mission classes instead of absolute yes/no positions.",
-      authorId: "crew-system",
-      createdAt: "2026-05-28T14:00:00.000Z",
-      upvotes: 734,
-      downvotes: 291,
-      comments: ["Anon: Robots are higher cadence science tools for the same cost band.", "Anon: Human missions accelerate systems engineering breakthroughs."],
-      savedByMe: false,
-      seenByMe: false
-    },
-    {
-      id: 5,
-      tag: "Space",
-      title: "What are the biggest technical blockers for long-duration lunar habitats?",
-      body: "Focus on radiation shielding, dust mitigation, closed-loop life support, and maintenance logistics in low-gravity environments.",
-      authorId: "crew-system",
-      createdAt: "2026-05-28T12:00:00.000Z",
-      upvotes: 428,
-      downvotes: 18,
-      comments: ["Anon: Lunar regolith dust control is underestimated in many public discussions.", "Anon: Reliable water recycling and redundancy will be mission critical."],
-      savedByMe: false,
-      seenByMe: false
-    },
-    {
-      id: 6,
-      tag: "Space",
-      title: "Which telescope era do you think will define the next 20 years?",
-      body: "Compare near-term impact of JWST follow-ups, Roman Space Telescope surveys, and upcoming ground observatories in multi-messenger astronomy.",
-      authorId: "crew-system",
-      createdAt: "2026-05-27T15:30:00.000Z",
-      upvotes: 541,
-      downvotes: 44,
-      comments: ["Anon: Roman's wide-field surveys could unlock major cosmology insights.", "Anon: Ground-based spectroscopy will remain essential for interpretation."],
-      savedByMe: false,
-      seenByMe: false
-    },
-    {
-      id: 101,
-      tag: "Science",
-      title: "What is the actual resolution of the human eye?",
-      body: "Framed differently: if the eye were a camera sensor, how many megapixels would it have, and what are the constraints that make this question tricky to answer cleanly?",
-      authorId: "crew-system",
-      createdAt: "2026-05-30T08:20:00.000Z",
-      upvotes: 812,
-      downvotes: 36,
-      comments: new Array(14).fill("Crew note"),
-      savedByMe: false,
-      seenByMe: false
-    },
-    {
-      id: 102,
-      tag: "Tech",
-      title: "Is local-first software a viable answer to cloud lock-in?",
-      body: "Break down the tradeoffs: offline capability, sync complexity, and the business model problem that makes local-first hard to sustain commercially.",
-      authorId: "crew-system",
-      createdAt: "2026-05-30T07:40:00.000Z",
-      upvotes: 876,
-      downvotes: 412,
-      comments: new Array(61).fill("Crew note"),
-      savedByMe: false,
-      seenByMe: false
-    },
-    {
-      id: 103,
-      tag: "Discussion",
-      title: "Which piece of infrastructure do you think is most underappreciated?",
-      body: "Think beyond roads and power: container shipping, undersea cables, sewage systems, or something less obvious. What would collapse first if it failed?",
-      authorId: "crew-system",
-      createdAt: "2026-05-30T06:50:00.000Z",
-      upvotes: 578,
-      downvotes: 24,
-      comments: new Array(22).fill("Crew note"),
-      savedByMe: false,
-      seenByMe: false
-    },
-    {
-      id: 104,
-      tag: "Space",
-      title: "How do orbital debris removal missions actually work in practice?",
-      body: "Explain the capture mechanisms being tested, the legal questions around touching another country's satellite debris, and the timescale problem.",
-      authorId: "crew-system",
-      createdAt: "2026-05-30T06:10:00.000Z",
-      upvotes: 491,
-      downvotes: 11,
-      comments: new Array(7).fill("Crew note"),
-      savedByMe: false,
-      seenByMe: false
-    },
-    {
-      id: 105,
-      tag: "Science",
-      title: "Why does muscle memory feel different from learned knowledge?",
-      body: "Dig into procedural vs declarative memory, the cerebellum's role, and why you can still ride a bike after decades but forget a phone number overnight.",
-      authorId: "crew-system",
-      createdAt: "2026-05-30T05:30:00.000Z",
-      upvotes: 403,
-      downvotes: 9,
-      comments: new Array(11).fill("Crew note"),
-      savedByMe: false,
-      seenByMe: false
-    },
-    {
-      id: 106,
-      tag: "Tech",
-      title: "What makes type systems actually useful versus just overhead?",
-      body: "Compare dynamic and static typing in real production contexts: where types catch bugs versus where they just move the friction.",
-      authorId: "crew-system",
-      createdAt: "2026-05-30T04:45:00.000Z",
-      upvotes: 612,
-      downvotes: 603,
-      comments: new Array(79).fill("Crew note"),
-      savedByMe: false,
-      seenByMe: false
-    }
-  ]
+  posts: createAstronomyFallbackPosts()
 };
 
-const API_BASE = (queryParams.get("api") || window.DC_API_BASE || "http://localhost:4000").replace(/\/$/, "");
+function createAstronomyFallbackPosts() {
+  const author = {
+    authorId: "observatory-crew",
+    authorName: "Observatory Crew",
+    savedByMe: false,
+    seenByMe: false
+  };
+  return [
+    {
+      ...author,
+      id: "fallback-astrophysics-cmb-map",
+      tag: "Astrophysics",
+      title: "What does the cosmic microwave background still leave unresolved?",
+      body: "Cosmology has precise temperature maps, but questions around inflation, dark matter, and early structure growth still shape how we interpret the CMB.",
+      createdAt: "2026-06-01T10:00:00.000Z",
+      upvotes: 42,
+      downvotes: 0,
+      comments: ["Observatory Crew: The CMB is precise, but interpretation still depends on the model around it."]
+    },
+    {
+      ...author,
+      id: "fallback-astrophysics-solar-oscillations",
+      tag: "Astrophysics",
+      title: "How do solar oscillations reveal the Sun's interior?",
+      body: "Helioseismology tracks pressure waves across the solar surface to infer rotation, density, magnetic behavior, and energy transport below the photosphere.",
+      createdAt: "2026-06-01T09:30:00.000Z",
+      upvotes: 36,
+      downvotes: 0,
+      comments: ["Observatory Crew: Oscillation modes make the Sun behave like an instrument."]
+    },
+    {
+      ...author,
+      id: "fallback-astrometry-gaia-distance-ladder",
+      tag: "Astrometry",
+      title: "Why does Gaia astrometry matter for the cosmic distance ladder?",
+      body: "Accurate parallax and proper-motion measurements calibrate nearby stars, which strengthens distance estimates used for Cepheids, supernovae, and galaxy-scale measurements.",
+      createdAt: "2026-06-01T09:00:00.000Z",
+      upvotes: 39,
+      downvotes: 0,
+      comments: ["Observatory Crew: Better local measurements improve the faraway measurements built on them."]
+    },
+    {
+      ...author,
+      id: "fallback-astrometry-exoplanet-wobble",
+      tag: "Astrometry",
+      title: "What can tiny stellar wobbles tell us about exoplanets?",
+      body: "Astrometric shifts can reveal planetary masses and orbits, especially when paired with transit and radial-velocity observations.",
+      createdAt: "2026-06-01T08:30:00.000Z",
+      upvotes: 31,
+      downvotes: 0,
+      comments: ["Observatory Crew: Position measurements are slow work, but they can break key orbit degeneracies."]
+    },
+    {
+      ...author,
+      id: "fallback-astrogeology-lunar-regolith",
+      tag: "Astrogeology",
+      title: "Why is lunar regolith such a difficult engineering material?",
+      body: "Selenography and planetary geology show that lunar dust is sharp, charged, abrasive, and chemically reactive enough to affect habitats, suits, seals, and instruments.",
+      createdAt: "2026-06-01T08:00:00.000Z",
+      upvotes: 34,
+      downvotes: 0,
+      comments: ["Observatory Crew: Dust behavior is geology becoming an engineering problem."]
+    },
+    {
+      ...author,
+      id: "fallback-astrogeology-mars-valleys",
+      tag: "Astrogeology",
+      title: "What do Martian valley networks imply about ancient water?",
+      body: "Areology compares channel shapes, crater ages, minerals, and sediment deposits to test whether early Mars had persistent rainfall, groundwater, or episodic meltwater.",
+      createdAt: "2026-06-01T07:30:00.000Z",
+      upvotes: 37,
+      downvotes: 0,
+      comments: ["Observatory Crew: Valley networks are one of the strongest clues that Mars had a very different climate."]
+    },
+    {
+      ...author,
+      id: "fallback-astrobiology-europa-plumes",
+      tag: "Astrobiology",
+      title: "What would make Europa plume chemistry compelling for life?",
+      body: "Astrobiology looks for chemical disequilibrium, organics, salts, and energy gradients that could connect an ocean environment to potential biological processes.",
+      createdAt: "2026-06-01T07:00:00.000Z",
+      upvotes: 45,
+      downvotes: 0,
+      comments: ["Observatory Crew: A plume sample would be valuable because it may connect directly to the subsurface ocean."]
+    },
+    {
+      ...author,
+      id: "fallback-astrobiology-atmosphere-false-positives",
+      tag: "Astrobiology",
+      title: "Which biosignature gases have the hardest false positives?",
+      body: "Astrochemistry helps separate possible biological signals from photochemistry, volcanism, atmospheric escape, and star-planet interaction effects.",
+      createdAt: "2026-06-01T06:30:00.000Z",
+      upvotes: 41,
+      downvotes: 0,
+      comments: ["Observatory Crew: Context matters as much as the gas itself."]
+    }
+  ];
+}
+
+const postCategoryMap = {
+  Space: "Astrophysics",
+  Science: "Astrobiology",
+  Tech: "Astrometry",
+  Discussion: "Astrogeology",
+  Social: "Astrobiology",
+  Other: "Astrophysics"
+};
+const postCategories = ["Astrophysics", "Astrometry", "Astrogeology", "Astrobiology"];
+
+function normalizePostCategory(value) {
+  const raw = String(value || "").trim();
+  if (postCategories.includes(raw)) return raw;
+  return postCategoryMap[raw] || "Astrophysics";
+}
+
+function getGameApiBase() {
+  if (queryParams.get("api")) return normalizeApiBase(queryParams.get("api"));
+  if (window.DC_API_BASE) return normalizeApiBase(window.DC_API_BASE);
+
+  const { hostname, protocol } = window.location;
+  if (hostname === "localhost" || hostname === "127.0.0.1") {
+    return "http://localhost:4000";
+  }
+  if (/^\d{1,3}(?:\.\d{1,3}){3}$/.test(hostname)) {
+    return `${protocol}//${hostname}:4000`;
+  }
+  return "";
+}
+
+function normalizeApiBase(value) {
+  return String(value || "")
+    .trim()
+    .replace(/\/+$/, "")
+    .replace(/\/api$/i, "");
+}
+
+const API_BASE = getGameApiBase().replace(/\/$/, "");
 const CURRENT_USER_ID = authedCrewId;
 const realtimeState = {
   source: null,
@@ -753,6 +754,21 @@ function handleRealtimeEvent(message) {
   } else if (message.type.startsWith("friend_")) {
     if (document.getElementById("friends-list-container")) loadFriendsHub();
   } else if (message.type === "dm_message_created") {
+    if (document.getElementById("friends-list-container")) {
+      const shouldReloadSelectedThread =
+        payload.threadId &&
+        payload.threadId === friendsState.selectedThreadId;
+      loadDmThreads().then(() => {
+        if (shouldReloadSelectedThread) {
+          return loadDmMessages(payload.threadId);
+        }
+        return null;
+      });
+    }
+  } else if (message.type === "dm_messages_read") {
+    if (payload.threadId === friendsState.selectedThreadId) {
+      loadDmMessages(payload.threadId);
+    }
     if (document.getElementById("friends-list-container")) loadDmThreads();
   } else if (message.type === "objective_updated") {
     loadSessionState();
@@ -824,14 +840,16 @@ function normalizePost(rawPost) {
   const comments = Array.isArray(rawPost.comments) ? rawPost.comments : [];
   return {
     id: rawPost.id || postStore.nextId++,
-    tag: rawPost.tag || "Space",
+    tag: normalizePostCategory(rawPost.tag),
     title: rawPost.title || "(Untitled transmission)",
     body: rawPost.body || rawPost.detail || "",
+    imageUrl: rawPost.imageUrl || rawPost.image_url || "",
     authorId: rawPost.authorId || "crew-local",
     authorName: rawPost.authorName || rawPost.authorId || "Crewmate",
     createdAt: rawPost.createdAt || new Date().toISOString(),
     upvotes: rawPost.upvotes || rawPost.likes || 0,
     downvotes: rawPost.downvotes || 0,
+    shares: rawPost.shares || 0,
     comments,
     commentCount: Number.isFinite(rawPost.commentCount) ? rawPost.commentCount : comments.length,
     commentsLoaded: Array.isArray(rawPost.comments),
@@ -879,6 +897,10 @@ async function loadPostsForFeed(feed, extraParams = {}) {
   replacePostsFromBackend(normalizePostsResponse(data));
 }
 
+function escapeInlineArg(value) {
+  return String(value || "").replace(/\\/g, "\\\\").replace(/'/g, "\\'");
+}
+
 startRealtimeStream();
 loadSessionState();
 
@@ -913,7 +935,13 @@ function getPostScore(post) {
 
 function getPostScoreLabel(post) {
   const score = getPostScore(post);
-  return `${score} like${Math.abs(score) === 1 ? "" : "s"}`;
+  const shares = Number(post?.shares || 0);
+  return `${score} like${Math.abs(score) === 1 ? "" : "s"} | ${shares} share${shares === 1 ? "" : "s"}`;
+}
+
+function renderPostImage(post, extraClass = "") {
+  if (!post?.imageUrl) return "";
+  return `<img class="post-image ${extraClass}" src="${escapeHtml(post.imageUrl)}" alt="${escapeHtml(post.title || "Post image")}" loading="lazy">`;
 }
 
 function createPost(rawPost) {
@@ -928,7 +956,8 @@ async function createPostOnBackend(rawPost) {
     body: JSON.stringify({
       title: rawPost.title,
       body: rawPost.body,
-      tag: rawPost.tag,
+      tag: normalizePostCategory(rawPost.tag),
+      imageUrl: rawPost.imageUrl || "",
       roomId: rawPost.roomId || "electrical"
     })
   });
@@ -1039,6 +1068,129 @@ function getSavedPosts() {
   return postStore.posts.filter(post => post.savedByMe);
 }
 
+function findFriendByChoice(friends, choice) {
+  const normalized = String(choice || "").trim().toLowerCase();
+  if (!normalized) return null;
+  const number = Number(normalized);
+  if (Number.isInteger(number) && number >= 1 && number <= friends.length) {
+    return friends[number - 1];
+  }
+  return friends.find((friend) => (
+    String(friend.displayName || "").toLowerCase() === normalized ||
+    String(friend.id || "").toLowerCase() === normalized
+  )) || null;
+}
+
+function getShareTargetForSurface(surface) {
+  return {
+    cafeteria: { hexKey: "8f8b66", label: "Cafeteria" },
+    o2: { hexKey: "00ff00", label: "O2" },
+    weapons: { hexKey: "0000ff", label: "Weapons" },
+    storage: { hexKey: "efa9fa", label: "Storage" }
+  }[surface] || { hexKey: "8f8b66", label: "Cafeteria" };
+}
+
+async function shareActivePost(surface) {
+  const postId = getSelectedPostIdBySurface(surface);
+  const post = getPostById(postId);
+  if (!post) return;
+
+  try {
+    const friendsPayload = await apiRequest("/api/friends/list");
+    const friends = friendsPayload.friends || [];
+    if (friends.length === 0) {
+      showShareStatus("Add a friend first, then share this transmission again.", true);
+      return;
+    }
+
+    const friend = await chooseShareFriend(post, friends);
+    if (!friend) return;
+
+    const threadPayload = await apiRequest("/api/dm/threads", {
+      method: "POST",
+      body: JSON.stringify({ receiverId: friend.id })
+    });
+    const threadId = threadPayload.thread?.id;
+    if (!threadId) throw new Error("Could not open a DM thread.");
+
+    const target = getShareTargetForSurface(surface);
+    const shareMeta = `[[DC_SHARE:${encodeURIComponent(post.id)}:${encodeURIComponent(surface)}]]`;
+    const preview = [
+      shareMeta,
+      `Shared post: ${post.title}`,
+      `${post.authorName || "Crewmate"} | ${normalizePostCategory(post.tag)} | ${target.label}`,
+      post.body ? post.body.slice(0, 220) : ""
+    ].filter(Boolean).join("\n");
+
+    await apiRequest(`/api/dm/threads/${encodeURIComponent(threadId)}/messages`, {
+      method: "POST",
+      body: JSON.stringify({ body: preview })
+    });
+
+    const sharePayload = await apiRequest(`/api/posts/${encodeURIComponent(post.id)}/share`, { method: "POST" });
+    post.shares = sharePayload.shares ?? (Number(post.shares || 0) + 1);
+    refreshPostViews();
+    showShareStatus(`Shared with ${friend.displayName || "Crewmate"}.`, false);
+  } catch (error) {
+    showShareStatus(`Could not share this post: ${error.message}`, true);
+  }
+}
+
+function showShareStatus(message, isError) {
+  const existing = document.getElementById("share-status-toast");
+  if (existing) existing.remove();
+  const toast = document.createElement("div");
+  toast.id = "share-status-toast";
+  toast.className = `share-status-toast ${isError ? "error" : ""}`;
+  toast.textContent = message;
+  document.body.appendChild(toast);
+  window.setTimeout(() => toast.remove(), 2600);
+}
+
+function chooseShareFriend(post, friends) {
+  return new Promise((resolve) => {
+    const existing = document.getElementById("share-friend-dialog");
+    if (existing) existing.remove();
+
+    const dialog = document.createElement("div");
+    dialog.id = "share-friend-dialog";
+    dialog.className = "share-dialog-backdrop";
+    dialog.innerHTML = `
+      <div class="share-dialog">
+        <div class="share-dialog-header">
+          <strong>Share Transmission</strong>
+          <button type="button" class="tw-close" data-share-close>X</button>
+        </div>
+        <p class="share-dialog-title">${escapeHtml(post.title)}</p>
+        <div class="share-friend-list">
+          ${friends.map((friend, index) => `
+            <button type="button" class="share-friend-row" data-friend-index="${index}">
+              <span class="friends-avatar" style="background:${escapeHtml(friend.avatarColor || "cyan")};">${escapeHtml((friend.displayName || "C").charAt(0).toUpperCase())}</span>
+              <span><strong>${escapeHtml(friend.displayName || "Crewmate")}</strong><small>Send as DM share card</small></span>
+            </button>
+          `).join("")}
+        </div>
+      </div>
+    `;
+    document.body.appendChild(dialog);
+
+    function close(value) {
+      dialog.remove();
+      resolve(value);
+    }
+
+    dialog.querySelector("[data-share-close]")?.addEventListener("click", () => close(null));
+    dialog.addEventListener("click", (event) => {
+      if (event.target === dialog) close(null);
+    });
+    dialog.querySelectorAll("[data-friend-index]").forEach((button) => {
+      button.addEventListener("click", () => {
+        close(friends[Number(button.dataset.friendIndex)]);
+      });
+    });
+  });
+}
+
 const cafeteriaState = {
   selectedPostId: null,
   visibleCount: 3,
@@ -1104,6 +1256,7 @@ function renderCafeteriaDetail() {
     <div class="cafeteria-thread-card">
       <p class="cafeteria-section-label">Post</p>
       <p><strong>${post.title}</strong></p>
+      ${renderPostImage(post)}
       <p style="margin-top:8px;">${post.body}</p>
     </div>
     <div class="cafeteria-comment-list">
@@ -1120,7 +1273,10 @@ function selectCafeteriaPost(postId) {
   renderCafeteriaFeed();
   renderCafeteriaDetail();
   loadCommentsForPost(postId);
+  scrollCafeteriaThreadIntoView();
+}
 
+function scrollCafeteriaThreadIntoView() {
   const threadSection = document.getElementById('cafeteria-thread-section');
   if (threadSection) {
     threadSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -1394,7 +1550,12 @@ function renderCommAlerts() {
 }
 
 const shieldsPrivacyState = {
-  blockedUsers: ["MutedExample"]
+  blockedUsers: [],
+  searchResults: [],
+  selectedUserId: "",
+  settingsLoaded: false,
+  applyingSettings: false,
+  saveTimer: null
 };
 
 function initNavigationHelpHub() {
@@ -1583,18 +1744,86 @@ function renderNavigationSupportList() {
 }
 
 function initShieldsPrivacyHub() {
-  updateShieldPrivacySummary();
-  renderShieldBlockedUsersList();
+  loadShieldPrivacySettings();
+  loadShieldBlockedUsers();
   renderShieldAuditList();
 }
 
+function getShieldPrivacyControls() {
+  return {
+    privacy: document.getElementById("shield-privacy"),
+    dm: document.getElementById("shield-dm"),
+    filter: document.getElementById("shield-filter"),
+    online: document.getElementById("shield-online-toggle"),
+    activity: document.getElementById("shield-activity-toggle"),
+    alerts: document.getElementById("shield-alert-toggle")
+  };
+}
+
+function readShieldPrivacySettingsFromControls() {
+  const controls = getShieldPrivacyControls();
+  return {
+    privacyMode: controls.privacy?.value || "Enabled",
+    dmPermissions: controls.dm?.value || "Crewmates Only",
+    contentFilter: controls.filter?.value || "Standard",
+    showOnlinePresence: controls.online ? controls.online.checked : true,
+    shareZoneActivity: controls.activity ? controls.activity.checked : true,
+    criticalAlerts: controls.alerts ? controls.alerts.checked : true
+  };
+}
+
+function applyShieldPrivacySettings(settings) {
+  const controls = getShieldPrivacyControls();
+  shieldsPrivacyState.applyingSettings = true;
+  if (controls.privacy) controls.privacy.value = settings.privacyMode || "Enabled";
+  if (controls.dm) controls.dm.value = settings.dmPermissions || "Crewmates Only";
+  if (controls.filter) controls.filter.value = settings.contentFilter || "Standard";
+  if (controls.online) controls.online.checked = settings.showOnlinePresence !== false;
+  if (controls.activity) controls.activity.checked = settings.shareZoneActivity !== false;
+  if (controls.alerts) controls.alerts.checked = settings.criticalAlerts !== false;
+  shieldsPrivacyState.settingsLoaded = true;
+  updateShieldPrivacySummary();
+  shieldsPrivacyState.applyingSettings = false;
+}
+
+function loadShieldPrivacySettings() {
+  apiRequest("/api/users/me/privacy")
+    .then((data) => {
+      applyShieldPrivacySettings(data.privacySettings || {});
+      const status = document.getElementById("shield-block-status");
+      if (status) status.textContent = "Privacy controls synced.";
+    })
+    .catch((error) => {
+      shieldsPrivacyState.settingsLoaded = true;
+      updateShieldPrivacySummary();
+      const status = document.getElementById("shield-block-status");
+      if (status) status.textContent = `Privacy settings unavailable: ${error.message}`;
+    });
+}
+
+function scheduleShieldPrivacySave() {
+  if (!shieldsPrivacyState.settingsLoaded || shieldsPrivacyState.applyingSettings) return;
+  if (shieldsPrivacyState.saveTimer) window.clearTimeout(shieldsPrivacyState.saveTimer);
+  shieldsPrivacyState.saveTimer = window.setTimeout(saveShieldPrivacySettings, 250);
+}
+
+function saveShieldPrivacySettings() {
+  const status = document.getElementById("shield-block-status");
+  apiRequest("/api/users/me/privacy", {
+    method: "PATCH",
+    body: JSON.stringify(readShieldPrivacySettingsFromControls())
+  })
+    .then((data) => {
+      if (data.privacySettings) applyShieldPrivacySettings(data.privacySettings);
+      if (status) status.textContent = "Privacy controls saved and enforced.";
+    })
+    .catch((error) => {
+      if (status) status.textContent = `Privacy save failed: ${error.message}`;
+    });
+}
+
 function updateShieldPrivacySummary() {
-  const privacy = document.getElementById("shield-privacy");
-  const dm = document.getElementById("shield-dm");
-  const filter = document.getElementById("shield-filter");
-  const online = document.getElementById("shield-online-toggle");
-  const activity = document.getElementById("shield-activity-toggle");
-  const alerts = document.getElementById("shield-alert-toggle");
+  const { privacy, dm, filter, online, activity, alerts } = getShieldPrivacyControls();
   const privacySummary = document.getElementById("shield-privacy-summary");
   const visibilitySummary = document.getElementById("shield-visibility-summary");
   const score = document.getElementById("shields-score-value");
@@ -1612,6 +1841,7 @@ function updateShieldPrivacySummary() {
   if (alerts.checked) rating += 2;
   if (score) score.textContent = `${Math.min(rating, 100)}%`;
   renderShieldAuditList();
+  scheduleShieldPrivacySave();
 }
 
 function renderShieldBlockedUsersList() {
@@ -1619,39 +1849,146 @@ function renderShieldBlockedUsersList() {
   if (!list) return;
 
   if (shieldsPrivacyState.blockedUsers.length === 0) {
-    list.innerHTML = `<div class="shields-item">No blocked users.</div>`;
+    list.innerHTML = `<div class="shields-item">No blocked crew accounts.</div>`;
     return;
   }
 
   list.innerHTML = shieldsPrivacyState.blockedUsers
-    .map((user) => `<div class="shields-item"><strong>${user}</strong> is blocked.</div>`)
+    .map((user) => `
+      <div class="shields-item">
+        <strong>${escapeHtml(user.displayName || "Crewmate")}</strong>
+        <span>Blocked</span>
+        <button class="dynamic-btn" type="button" onclick="unblockUserFromShields('${escapeInlineArg(user.id)}')">Unblock</button>
+      </div>
+    `)
     .join("");
 }
 
-function blockUserFromShields() {
-  const input = document.getElementById("shield-block-user-input");
-  if (!input) return;
-  const user = input.value.trim();
-  if (!user) return;
-
-  if (!shieldsPrivacyState.blockedUsers.includes(user)) {
-    shieldsPrivacyState.blockedUsers.push(user);
-  }
-  input.value = "";
-  renderShieldBlockedUsersList();
-  renderShieldAuditList();
+function loadShieldBlockedUsers() {
+  apiRequest("/api/users/me/blocked-users")
+    .then((data) => {
+      shieldsPrivacyState.blockedUsers = data.blockedUsers || [];
+      renderShieldBlockedUsersList();
+      renderShieldAuditList();
+    })
+    .catch((error) => {
+      const status = document.getElementById("shield-block-status");
+      if (status) status.textContent = `Block list unavailable: ${error.message}`;
+      renderShieldBlockedUsersList();
+    });
 }
 
-function unblockUserFromShields() {
+function searchShieldCrewmates() {
   const input = document.getElementById("shield-block-user-input");
   if (!input) return;
-  const user = input.value.trim();
-  if (!user) return;
+  const query = input.value.trim();
+  const status = document.getElementById("shield-block-status");
+  if (!query) {
+    if (status) status.textContent = "Enter a crew name to search.";
+    return;
+  }
 
-  shieldsPrivacyState.blockedUsers = shieldsPrivacyState.blockedUsers.filter((name) => name.toLowerCase() !== user.toLowerCase());
-  input.value = "";
-  renderShieldBlockedUsersList();
-  renderShieldAuditList();
+  searchCrewUsers(query)
+    .then((users) => {
+      shieldsPrivacyState.searchResults = users;
+      shieldsPrivacyState.selectedUserId = shieldsPrivacyState.searchResults[0]?.id || "";
+      renderShieldSearchResults();
+      if (status) status.textContent = shieldsPrivacyState.searchResults.length ? "Select a crewmate, then block." : "No matching crewmates found.";
+    })
+    .catch((error) => {
+      if (status) status.textContent = `Search failed: ${error.message}`;
+    });
+}
+
+function renderShieldSearchResults() {
+  const list = document.getElementById("shield-search-results");
+  if (!list) return;
+  if (shieldsPrivacyState.searchResults.length === 0) {
+    list.innerHTML = "";
+    return;
+  }
+  list.innerHTML = shieldsPrivacyState.searchResults.map((user) => {
+    const selected = shieldsPrivacyState.selectedUserId === user.id;
+    return `
+      <button class="friends-row ${selected ? "selected" : ""}" type="button" onclick="selectShieldBlockTarget('${escapeInlineArg(user.id)}')">
+        <span class="friends-avatar" style="background:${escapeHtml(user.avatarColor || "cyan")};">${escapeHtml((user.displayName || "C").charAt(0).toUpperCase())}</span>
+        <span><strong>${escapeHtml(user.displayName || "Crewmate")}</strong><small>${escapeHtml(getRelationshipLabel(user.relationship))}</small></span>
+        <span class="state-badge">${escapeHtml(getRelationshipLabel(user.relationship))}</span>
+      </button>
+    `;
+  }).join("");
+}
+
+function selectShieldBlockTarget(userId) {
+  shieldsPrivacyState.selectedUserId = userId;
+  renderShieldSearchResults();
+}
+
+async function resolveShieldBlockTarget() {
+  if (shieldsPrivacyState.selectedUserId) return shieldsPrivacyState.selectedUserId;
+
+  const input = document.getElementById("shield-block-user-input");
+  const query = input ? input.value.trim() : "";
+  if (!query) return "";
+
+  const users = await searchCrewUsers(query);
+  shieldsPrivacyState.searchResults = users;
+  const normalizedQuery = query.toLowerCase();
+  const exactMatch = users.find((user) => {
+    const id = String(user.id || "").toLowerCase();
+    const name = String(user.displayName || "").toLowerCase();
+    return id === normalizedQuery || name === normalizedQuery;
+  });
+  const target = exactMatch || users[0];
+  shieldsPrivacyState.selectedUserId = target?.id || "";
+  renderShieldSearchResults();
+  return shieldsPrivacyState.selectedUserId;
+}
+
+async function blockUserFromShields() {
+  const status = document.getElementById("shield-block-status");
+  if (status) status.textContent = "Resolving crewmate...";
+  let userId = "";
+  try {
+    userId = await resolveShieldBlockTarget();
+  } catch (error) {
+    if (status) status.textContent = `Search failed: ${error.message}`;
+    return;
+  }
+
+  if (!userId) {
+    if (status) status.textContent = "No matching crewmate found.";
+    return;
+  }
+
+  try {
+    await apiRequest("/api/users/me/blocked-users", {
+      method: "POST",
+      body: JSON.stringify({ blockedUserId: userId })
+    });
+    if (status) status.textContent = "Crewmate blocked. Follows and DMs are now restricted.";
+    shieldsPrivacyState.selectedUserId = "";
+    shieldsPrivacyState.searchResults = [];
+    renderShieldSearchResults();
+    loadShieldBlockedUsers();
+    loadFriendsHub();
+  } catch (error) {
+    if (status) status.textContent = `Block failed: ${error.message}`;
+  }
+}
+
+function unblockUserFromShields(userId) {
+  const status = document.getElementById("shield-block-status");
+  if (!userId) return;
+  apiRequest(`/api/users/me/blocked-users/${encodeURIComponent(userId)}`, { method: "DELETE" })
+    .then(() => {
+      if (status) status.textContent = "Crewmate unblocked.";
+      loadShieldBlockedUsers();
+      loadFriendsHub();
+    })
+    .catch((error) => {
+      if (status) status.textContent = `Unblock failed: ${error.message}`;
+    });
 }
 
 function renderShieldAuditList() {
@@ -1718,10 +2055,8 @@ function initAdminProfileHub() {
   if (statusSelect) statusSelect.value = adminState.status;
 
   updateAdminProfilePreview();
-  updateAdminPreferencesSummary();
   updateAdminColorSelection();
   renderAdminChecklist();
-  loadAdminCrewmates();
 }
 
 function readAdminProfileFromStorage() {
@@ -1953,16 +2288,24 @@ const friendsState = {
   selected: null,
   data: {
     friends: [],
-    incoming: [],
-    outgoing: [],
     following: [],
     followers: [],
-    suggestions: []
+    suggestions: [],
+    blockedUsers: []
   },
+  searchQuery: "",
+  searchResults: [],
+  searchHasRun: false,
   dmThreads: [],
   dmMessages: [],
   selectedThreadId: null,
-  dmError: ""
+  dmError: "",
+  profile: {
+    open: false,
+    loading: false,
+    error: "",
+    data: null
+  }
 };
 
 function initFriendsHub() {
@@ -1979,11 +2322,10 @@ function loadFriendsHub() {
     .then((data) => {
       friendsState.data = {
         friends: data.friends || [],
-        incoming: data.incoming || [],
-        outgoing: data.outgoing || [],
         following: data.following || [],
         followers: data.followers || [],
-        suggestions: data.suggestions || []
+        suggestions: data.suggestions || [],
+        blockedUsers: data.blockedUsers || []
       };
       renderFriendsHub();
     })
@@ -2002,6 +2344,7 @@ function switchFriendsTab(tab) {
   renderFriendsHub();
   if (tab === "objectives") loadSessionState();
   if (tab === "messages") loadDmThreads();
+  if (tab === "search") renderFriendsHub();
 }
 
 function renderFriendsHub() {
@@ -2009,27 +2352,22 @@ function renderFriendsHub() {
     button.classList.toggle("active", button.dataset.tab === friendsState.activeTab);
   });
   const friendsBadge = document.getElementById("badge-friends");
-  const requestsBadge = document.getElementById("badge-requests");
   const messagesBadge = document.getElementById("badge-messages");
   if (friendsBadge) friendsBadge.textContent = friendsState.data.friends.length;
-  if (requestsBadge) requestsBadge.textContent = friendsState.data.incoming.length;
   if (messagesBadge) messagesBadge.textContent = friendsState.dmThreads.length;
   renderFriendsList();
   renderFriendsFooter();
   renderObjectivePanel();
+  renderCrewProfileDialog();
+  if (friendsState.activeTab === "messages") scrollDmMessagesToBottom();
 }
 
 function getActiveFriendRows() {
   if (friendsState.activeTab === "friends") return friendsState.data.friends.map((row) => ({ ...row, status: "Friend" }));
-  if (friendsState.activeTab === "requests") {
-    return [
-      ...friendsState.data.incoming.map((row) => ({ ...row, status: "Incoming" })),
-      ...friendsState.data.outgoing.map((row) => ({ ...row, status: "Outgoing" }))
-    ];
-  }
   if (friendsState.activeTab === "suggestions") return friendsState.data.suggestions.map((row) => ({ ...row, status: "Suggested" }));
   if (friendsState.activeTab === "following") return friendsState.data.following.map((row) => ({ ...row, status: "Following" }));
   if (friendsState.activeTab === "followers") return friendsState.data.followers.map((row) => ({ ...row, status: "Follower" }));
+  if (friendsState.activeTab === "search") return friendsState.searchResults.map((row) => ({ ...row, status: getRelationshipLabel(row.relationship) }));
   return [];
 }
 
@@ -2061,7 +2399,7 @@ function renderFriendsList() {
           ${threads.length === 0 ? `<p class="friends-empty-msg">No DM threads yet. Select a friend and hit Message.</p>` : threads.map((thread) => {
             const selected = thread.id === friendsState.selectedThreadId;
             const other = thread.otherUser || {};
-            const preview = thread.lastMessage ? thread.lastMessage.body : "No messages yet.";
+            const preview = formatDmThreadPreview(thread.lastMessage);
             return `
               <button class="dm-thread-row ${selected ? "selected" : ""}" type="button" onclick="selectDmThread('${thread.id}')">
                 <span class="friends-avatar" style="background:${escapeHtml(other.avatarColor || "cyan")};">${escapeHtml((other.displayName || "C").charAt(0).toUpperCase())}</span>
@@ -2082,9 +2420,30 @@ function renderFriendsList() {
             <input id="dm-compose-input" class="dynamic-input" type="text" maxlength="1000" placeholder="${selectedThread ? "Write a message..." : "Select a thread first"}" ${selectedThread ? "" : "disabled"}>
             <button class="dynamic-btn" type="button" onclick="sendDmMessage()" ${selectedThread ? "" : "disabled"}>Send</button>
           </div>
+          <p class="privacy-helper-text">Message delivery follows the recipient's Shields DM Permissions.</p>
         </div>
       </div>
     `;
+    return;
+  }
+
+  if (friendsState.activeTab === "search") {
+    container.innerHTML = `
+      <div class="friends-search-panel">
+        <div class="dm-compose-row">
+          <input id="friends-search-input" class="dynamic-input" type="text" maxlength="80" placeholder="Search crew names" value="${escapeHtml(friendsState.searchQuery)}">
+          <button class="dynamic-btn" type="button" onclick="searchFriendsHub()">Search</button>
+        </div>
+        <p class="friends-empty-msg">Search only shows crew profiles visible under their Shields Privacy Mode.</p>
+        <div id="friends-search-results">${renderFriendRowsMarkup(getActiveFriendRows())}</div>
+      </div>
+    `;
+    const input = document.getElementById("friends-search-input");
+    if (input) {
+      input.onkeydown = (event) => {
+        if (event.key === "Enter") searchFriendsHub();
+      };
+    }
     return;
   }
 
@@ -2093,22 +2452,34 @@ function renderFriendsList() {
     container.innerHTML = `<p class="friends-empty-msg">No crewmates in this panel.</p>`;
     return;
   }
-  container.innerHTML = rows.map((crewmate) => {
+  container.innerHTML = renderFriendRowsMarkup(rows);
+}
+
+function renderFriendRowsMarkup(rows) {
+  if (!rows || rows.length === 0) {
+    const message = friendsState.activeTab === "search" && friendsState.searchHasRun
+      ? "No visible crewmates matched. Their Shields privacy may hide them from search."
+      : "No crewmates in this panel.";
+    return `<p class="friends-empty-msg">${message}</p>`;
+  }
+  return rows.map((crewmate) => {
     const selected = friendsState.selected && friendsState.selected.id === crewmate.id && friendsState.selected.status === crewmate.status;
-    const initial = (crewmate.displayName || "C").charAt(0).toUpperCase();
+    const displayName = crewmate.displayName || "Crewmate";
+    const initial = displayName.charAt(0).toUpperCase();
+    const label = getRelationshipLabel(crewmate.relationship) || crewmate.status;
     return `
-      <button class="friends-row ${selected ? "selected" : ""}" type="button" onclick="selectFriendRow('${crewmate.id}', '${crewmate.status}', '${crewmate.requestId || ""}')">
-        <span class="friends-avatar" style="background:${crewmate.avatarColor || "cyan"};">${initial}</span>
-        <span><strong>${crewmate.displayName || crewmate.id}</strong><small>${crewmate.id}</small></span>
-        <span class="state-badge">${crewmate.status}</span>
+      <button class="friends-row ${selected ? "selected" : ""}" type="button" onclick="selectFriendRow('${escapeInlineArg(crewmate.id)}', '${escapeInlineArg(crewmate.status)}')">
+        <span class="friends-avatar" style="background:${escapeHtml(crewmate.avatarColor || "cyan")};">${escapeHtml(initial)}</span>
+        <span><strong>${escapeHtml(displayName)}</strong><small>${escapeHtml(label)}</small></span>
+        <span class="state-badge">${escapeHtml(label)}</span>
       </button>
     `;
   }).join("");
 }
 
-function selectFriendRow(id, status, requestId) {
+function selectFriendRow(id, status) {
   const row = getActiveFriendRows().find((item) => item.id === id && item.status === status);
-  friendsState.selected = row ? { ...row, requestId } : null;
+  friendsState.selected = row ? { ...row } : null;
   renderFriendsHub();
 }
 
@@ -2118,40 +2489,430 @@ function renderFriendsFooter() {
   const actions = document.getElementById("friends-footer-actions");
   if (!selectedName || !selectedStatus || !actions) return;
   const selected = friendsState.selected;
-  selectedName.textContent = selected ? selected.displayName : "No crewmate selected";
-  selectedStatus.textContent = selected ? selected.status : "";
+  selectedName.textContent = selected ? (selected.displayName || "Crewmate") : "No crewmate selected";
+  selectedStatus.textContent = selected ? getRelationshipLabel(selected.relationship) || selected.status : "";
   if (!selected) {
     actions.innerHTML = "";
     return;
   }
-  if (selected.status === "Incoming") {
+  if (selected.relationship === "blocked" || selected.relationship === "blockedBy") {
     actions.innerHTML = `
-      <button class="dynamic-btn" type="button" onclick="acceptFriendRequest('${selected.requestId}')">Accept</button>
-      <button class="dynamic-btn danger-btn" type="button" onclick="declineFriendRequest('${selected.requestId}')">Decline</button>
+      <button class="dynamic-btn" type="button" onclick="openCrewProfile('${escapeInlineArg(selected.id)}')">View Profile</button>
+      <span class="friends-empty-msg">Messaging is blocked.</span>
     `;
-  } else if (selected.status === "Outgoing") {
-    actions.innerHTML = `<button class="dynamic-btn danger-btn" type="button" onclick="cancelFriendRequest('${selected.requestId}')">Cancel</button>`;
-  } else if (selected.status === "Suggested" || selected.status === "Follower") {
-    actions.innerHTML = `<button class="dynamic-btn" type="button" onclick="sendFriendRequest('${selected.id}')">Add Friend</button>`;
-  } else if (selected.status === "Friend") {
+  } else if (selected.relationship === "friend" || selected.status === "Friend") {
     actions.innerHTML = `
-      <button class="dynamic-btn" type="button" onclick="openDmWithUser('${selected.id}')">Message</button>
-      <button class="dynamic-btn danger-btn" type="button" onclick="removeFriend('${selected.id}')">Remove</button>
+      <button class="dynamic-btn" type="button" onclick="openCrewProfile('${escapeInlineArg(selected.id)}')">View Profile</button>
+      <button class="dynamic-btn" type="button" onclick="openDmWithUser('${escapeInlineArg(selected.id)}')">Message</button>
+      <button class="dynamic-btn danger-btn" type="button" onclick="unfollowCrewmateFromComms('${escapeInlineArg(selected.id)}')">Unfollow</button>
+    `;
+  } else if (selected.relationship === "following" || selected.status === "Following") {
+    actions.innerHTML = `
+      <button class="dynamic-btn" type="button" onclick="openCrewProfile('${escapeInlineArg(selected.id)}')">View Profile</button>
+      <button class="dynamic-btn danger-btn" type="button" onclick="unfollowCrewmateFromComms('${escapeInlineArg(selected.id)}')">Unfollow</button>
     `;
   } else {
-    actions.innerHTML = "";
+    actions.innerHTML = `
+      <button class="dynamic-btn" type="button" onclick="openCrewProfile('${escapeInlineArg(selected.id)}')">View Profile</button>
+      <button class="dynamic-btn" type="button" onclick="followCrewmateFromComms('${escapeInlineArg(selected.id)}')">Follow</button>
+    `;
   }
+}
+
+function getRelationshipLabel(relationship) {
+  if (relationship === "friend") return "Friend";
+  if (relationship === "following") return "Following";
+  if (relationship === "follower") return "Follows you";
+  if (relationship === "blocked") return "Blocked";
+  if (relationship === "blockedBy") return "Unavailable";
+  if (relationship === "self") return "You";
+  return relationship ? "Crewmate" : "";
+}
+
+function openCrewProfile(userId) {
+  if (!userId) return;
+  friendsState.profile = {
+    open: true,
+    loading: true,
+    error: "",
+    data: null
+  };
+  renderFriendsHub();
+  apiRequest(`/api/users/${encodeURIComponent(userId)}/profile`)
+    .then((data) => {
+      friendsState.profile = {
+        open: true,
+        loading: false,
+        error: "",
+        data: data.profile || null
+      };
+      renderFriendsHub();
+    })
+    .catch((error) => {
+      friendsState.profile = {
+        open: true,
+        loading: false,
+        error: formatCrewPrivacyError(error, "Could not load profile"),
+        data: null
+      };
+      renderFriendsHub();
+    });
+}
+
+function closeCrewProfile() {
+  friendsState.profile = {
+    open: false,
+    loading: false,
+    error: "",
+    data: null
+  };
+  renderFriendsHub();
+}
+
+function renderCrewProfileDialog() {
+  const existing = document.getElementById("crew-profile-dialog");
+  if (existing) existing.remove();
+  if (!friendsState.profile.open) return;
+
+  const dialog = document.createElement("div");
+  dialog.id = "crew-profile-dialog";
+  dialog.className = "crew-profile-backdrop";
+  dialog.innerHTML = renderCrewProfileDialogMarkup();
+  document.body.appendChild(dialog);
+  dialog.querySelector("[data-profile-close]")?.addEventListener("click", closeCrewProfile);
+  dialog.addEventListener("click", (event) => {
+    if (event.target === dialog) closeCrewProfile();
+  });
+}
+
+function renderCrewProfileDialogMarkup() {
+  const state = friendsState.profile;
+  if (state.loading) {
+    return `
+      <div class="crew-profile-dialog compact">
+        <div class="crew-profile-header">
+          <strong>Loading Profile</strong>
+          <button type="button" class="tw-close" data-profile-close>X</button>
+        </div>
+        <p class="friends-empty-msg">Checking Shields visibility...</p>
+      </div>
+    `;
+  }
+
+  if (state.error || !state.data) {
+    return `
+      <div class="crew-profile-dialog compact">
+        <div class="crew-profile-header">
+          <strong>Profile Unavailable</strong>
+          <button type="button" class="tw-close" data-profile-close>X</button>
+        </div>
+        <p class="friends-empty-msg">${escapeHtml(state.error || "This profile could not be loaded.")}</p>
+      </div>
+    `;
+  }
+
+  const profile = state.data;
+  const initial = (profile.displayName || "C").charAt(0).toUpperCase();
+  return `
+    <div class="crew-profile-dialog">
+      <div class="crew-profile-header">
+        <div class="crew-profile-title">
+          <span class="friends-avatar" style="background:${escapeHtml(profile.avatarColor || "cyan")};">${escapeHtml(initial)}</span>
+          <div>
+            <strong>${escapeHtml(profile.displayName || "Crewmate")}</strong>
+            <small>${escapeHtml(getRelationshipLabel(profile.relationship))} | ${escapeHtml(profile.privacyMode || "Enabled")}</small>
+          </div>
+        </div>
+        <button type="button" class="tw-close" data-profile-close>X</button>
+      </div>
+
+      <div class="crew-profile-stats">
+        <div><strong>${Number(profile.followersCount || 0)}</strong><span>Followers</span></div>
+        <div><strong>${Number(profile.followingCount || 0)}</strong><span>Following</span></div>
+        <div><strong>${(profile.posts || []).length}</strong><span>Recent Posts</span></div>
+      </div>
+
+      <p class="crew-profile-bio">${escapeHtml(profile.bio || "No profile bio yet.")}</p>
+      <p class="privacy-helper-text">This view follows the profile owner's Shields Privacy Mode. If their profile is visible to you, their posts and crew lists are shown.</p>
+
+      <div class="crew-profile-grid">
+        <section>
+          <h4>Recent Posts</h4>
+          ${renderCrewProfilePosts(profile.posts || [])}
+        </section>
+        <section>
+          <h4>Friends (${(profile.friends || []).length})</h4>
+          ${renderCrewProfileCrewList(profile.friends || [])}
+        </section>
+        <section>
+          <h4>Following (${(profile.following || []).length}/${Number(profile.followingCount || 0)})</h4>
+          ${renderCrewProfileCrewList(profile.following || [])}
+        </section>
+        <section>
+          <h4>Followers (${(profile.followers || []).length}/${Number(profile.followersCount || 0)})</h4>
+          ${renderCrewProfileCrewList(profile.followers || [])}
+        </section>
+      </div>
+    </div>
+  `;
+}
+
+function renderCrewProfilePosts(posts) {
+  if (!posts.length) return `<p class="friends-empty-msg">No visible posts yet.</p>`;
+  return `
+    <div class="crew-profile-posts">
+      ${posts.map((post) => `
+        <article class="crew-profile-post">
+          <span>${escapeHtml(normalizePostCategory(post.tag))} | ${escapeHtml(new Date(post.createdAt).toLocaleDateString())}</span>
+          <strong>${escapeHtml(post.title || "Untitled transmission")}</strong>
+          ${renderPostImage(post)}
+          <p>${escapeHtml((post.body || "").slice(0, 180))}</p>
+          <small>${Number(post.upvotes || 0)} likes | ${Number(post.commentCount || 0)} comments | ${Number(post.shares || 0)} shares</small>
+        </article>
+      `).join("")}
+    </div>
+  `;
+}
+
+function renderCrewProfileCrewList(rows) {
+  if (!rows.length) return `<p class="friends-empty-msg">No visible crewmates.</p>`;
+  return `
+    <div class="crew-profile-list">
+      ${rows.map((row) => `
+        <button type="button" class="crew-profile-person" onclick="openCrewProfile('${escapeInlineArg(row.id)}')">
+          <span class="friends-avatar" style="background:${escapeHtml(row.avatarColor || "cyan")};">${escapeHtml((row.displayName || "C").charAt(0).toUpperCase())}</span>
+          <span><strong>${escapeHtml(row.displayName || "Crewmate")}</strong><small>${escapeHtml(getRelationshipLabel(row.relationship))}</small></span>
+        </button>
+      `).join("")}
+    </div>
+  `;
+}
+
+function searchCrewUsers(query) {
+  const normalized = String(query || "").trim().toLowerCase();
+  if (!normalized) return Promise.resolve([]);
+  return apiRequest(`/api/users/search?q=${encodeURIComponent(query)}`)
+    .then((data) => data.users || [])
+    .catch((error) => {
+      if (!/route not found|not found/i.test(error.message || "")) throw error;
+      return apiRequest("/api/friends/list").then((data) => {
+        const rows = [
+          ...(data.friends || []),
+          ...(data.following || []),
+          ...(data.followers || []),
+          ...(data.suggestions || []),
+          ...(data.blockedUsers || [])
+        ];
+        const byId = new Map();
+        rows.forEach((row) => {
+          if (!row || !row.id || byId.has(row.id)) return;
+          byId.set(row.id, row);
+        });
+        return [...byId.values()].filter((row) => {
+          const name = String(row.displayName || "").toLowerCase();
+          const id = String(row.id || "").toLowerCase();
+          return name.includes(normalized) || id.includes(normalized);
+        });
+      });
+    });
+}
+
+function formatCrewPrivacyError(error, fallback) {
+  const message = error?.message || "";
+  if (/profile is private/i.test(message)) return "That crewmate's Shields Privacy Mode hides this action.";
+  if (/dm permissions/i.test(message)) return "That crewmate's Shields DM Permissions prevent this message.";
+  return `${fallback}: ${message || "Unknown error"}`;
+}
+
+function searchFriendsHub() {
+  const input = document.getElementById("friends-search-input");
+  const query = input ? input.value.trim() : friendsState.searchQuery;
+  friendsState.searchQuery = query;
+  if (!query) {
+    friendsState.searchResults = [];
+    friendsState.searchHasRun = false;
+    renderFriendsHub();
+    return;
+  }
+  searchCrewUsers(query)
+    .then((users) => {
+      friendsState.searchResults = users;
+      friendsState.searchHasRun = true;
+      friendsState.selected = null;
+      renderFriendsHub();
+    })
+    .catch((error) => {
+      const banner = document.getElementById("friends-error-banner");
+      if (banner) {
+        banner.textContent = `Search unavailable: ${error.message}`;
+        banner.style.display = "block";
+      }
+    });
+}
+
+function followCrewmateFromComms(userId) {
+  apiRequest(`/api/users/${encodeURIComponent(userId)}/follow`, { method: "POST" })
+    .then(() => loadFriendsHub())
+    .then(loadSessionState)
+    .then(() => {
+      if (friendsState.activeTab === "search" && friendsState.searchQuery) return searchFriendsHub();
+      return null;
+    })
+    .catch((error) => {
+      const banner = document.getElementById("friends-error-banner");
+      if (banner) {
+        banner.textContent = formatCrewPrivacyError(error, "Follow failed");
+        banner.style.display = "block";
+      }
+    });
+}
+
+function unfollowCrewmateFromComms(userId) {
+  apiRequest(`/api/users/${encodeURIComponent(userId)}/unfollow`, { method: "POST" })
+    .then(() => {
+      friendsState.selected = null;
+      return loadFriendsHub();
+    })
+    .then(() => {
+      if (friendsState.activeTab === "search" && friendsState.searchQuery) return searchFriendsHub();
+      return null;
+    })
+    .catch((error) => {
+      const banner = document.getElementById("friends-error-banner");
+      if (banner) {
+        banner.textContent = `Unfollow failed: ${error.message}`;
+        banner.style.display = "block";
+      }
+    });
+}
+
+function blockCrewmateFromComms(userId) {
+  apiRequest("/api/users/me/blocked-users", {
+    method: "POST",
+    body: JSON.stringify({ blockedUserId: userId })
+  })
+    .then(() => {
+      friendsState.selected = null;
+      return loadFriendsHub();
+    })
+    .catch((error) => {
+      const banner = document.getElementById("friends-error-banner");
+      if (banner) {
+        banner.textContent = `Block failed: ${error.message}`;
+        banner.style.display = "block";
+      }
+    });
 }
 
 function renderDmMessagesMarkup() {
   if (!friendsState.selectedThreadId) return `<p class="friends-empty-msg">Pick a DM thread from the left.</p>`;
   if (friendsState.dmMessages.length === 0) return `<p class="friends-empty-msg">No messages yet. Start the thread.</p>`;
-  return friendsState.dmMessages.map((message) => `
+  return friendsState.dmMessages.map(renderDmMessageMarkup).join("");
+}
+
+function renderDmMessageMarkup(message) {
+  const share = parseSharedPostMessage(message.body);
+  if (share) {
+    return `
+      <div class="dm-message share-message ${message.sentByMe ? "sent" : "received"}">
+        <small>${escapeHtml(message.senderName || (message.sentByMe ? "You" : "Crewmate"))} | ${escapeHtml(formatDmTimestamp(message.createdAt))}</small>
+        <button class="dm-share-card" type="button" onclick="openSharedPostFromMessage('${escapeInlineArg(share.postId)}', '${escapeInlineArg(share.surface)}')">
+          <span>${escapeHtml(share.place)} Shared Post</span>
+          <strong>${escapeHtml(share.title)}</strong>
+          <small>${escapeHtml(share.meta)}</small>
+          <p>${escapeHtml(share.preview)}</p>
+        </button>
+        ${message.sentByMe ? `<span class="dm-read-receipt">${escapeHtml(message.read ? `Read ${formatDmTimestamp(message.readAt)}` : "Delivered")}</span>` : ""}
+      </div>
+    `;
+  }
+  return `
     <div class="dm-message ${message.sentByMe ? "sent" : "received"}">
-      <small>${escapeHtml(message.senderName || (message.sentByMe ? "You" : "Crewmate"))}</small>
+      <small>${escapeHtml(message.senderName || (message.sentByMe ? "You" : "Crewmate"))} | ${escapeHtml(formatDmTimestamp(message.createdAt))}</small>
       <p>${escapeHtml(message.body)}</p>
+      ${message.sentByMe ? `<span class="dm-read-receipt">${escapeHtml(message.read ? `Read ${formatDmTimestamp(message.readAt)}` : "Delivered")}</span>` : ""}
     </div>
-  `).join("");
+  `;
+}
+
+function parseSharedPostMessage(body) {
+  const lines = String(body || "").split("\n");
+  const marker = lines[0] || "";
+  const match = marker.match(/^\[\[DC_SHARE:([^:]+):([^\]]+)\]\]$/);
+  if (!match) return null;
+  const surface = decodeURIComponent(match[2]);
+  const target = getShareTargetForSurface(surface);
+  return {
+    postId: decodeURIComponent(match[1]),
+    surface,
+    place: target.label,
+    title: (lines[1] || "Shared post").replace(/^Shared post:\s*/i, ""),
+    meta: lines[2] || target.label,
+    preview: lines.slice(3).join(" ").trim() || "Open this shared transmission in its station room."
+  };
+}
+
+function formatDmThreadPreview(message) {
+  if (!message) return "No messages yet.";
+  const share = parseSharedPostMessage(message.body);
+  if (share) return `Shared post: ${share.title}`;
+  return message.body || "No messages yet.";
+}
+
+function scrollDmMessagesToBottom() {
+  window.setTimeout(() => {
+    const list = document.getElementById("dm-message-list");
+    if (list) list.scrollTop = list.scrollHeight;
+  }, 0);
+}
+
+function formatDmTimestamp(value) {
+  if (!value) return "";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "";
+  return date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+}
+
+function openSharedPostFromMessage(postId, surface) {
+  const target = getShareTargetForSurface(surface);
+  const zone = terminalContentRegistry[target.hexKey];
+  if (!zone) return;
+
+  if (isTerminalOpen) closeTerminal();
+  executeTwoSecondQuantumWarp(zone, target.hexKey);
+  window.setTimeout(() => selectSharedPostAfterWarp(postId, surface), 2600);
+}
+
+function selectSharedPostAfterWarp(postId, surface) {
+  loadPostsFromBackend()
+    .then(() => {
+      if (surface === "o2") {
+        o2State.selectedPostId = postId;
+        renderO2Feed();
+        renderO2Detail();
+        return;
+      }
+      if (surface === "weapons") {
+        weaponsState.selectedPostId = postId;
+        renderWeaponsFeed();
+        renderWeaponsDetail();
+        return;
+      }
+      if (surface === "storage") {
+        storageState.selectedPostId = postId;
+        renderStorageSavedList();
+        renderStorageDetail();
+        return;
+      }
+      cafeteriaState.selectedPostId = postId;
+      renderCafeteriaFeed();
+      renderCafeteriaDetail();
+      loadCommentsForPost(postId);
+      scrollCafeteriaThreadIntoView();
+    })
+    .catch((error) => {
+      showShareStatus(`Could not open shared post: ${error.message}`, true);
+    });
 }
 
 function loadDmThreads() {
@@ -2184,7 +2945,7 @@ function openDmWithUser(receiverId) {
       return loadDmMessages(friendsState.selectedThreadId);
     })
     .catch((error) => {
-      friendsState.dmError = `Could not open DM: ${error.message}`;
+      friendsState.dmError = formatCrewPrivacyError(error, "Could not open DM");
       friendsState.activeTab = "messages";
       renderFriendsHub();
     });
@@ -2235,35 +2996,13 @@ function sendDmMessage() {
       return loadDmMessages(threadId).then(loadDmThreads);
     })
     .catch((error) => {
-      friendsState.dmError = `Could not send message: ${error.message}`;
+      friendsState.dmError = formatCrewPrivacyError(error, "Could not send message");
       renderFriendsHub();
     })
     .finally(() => {
       input.disabled = false;
     });
 }
-
-function sendFriendRequest(receiverId) {
-  apiRequest("/api/friends/request", { method: "POST", body: JSON.stringify({ receiverId }) }).then(loadFriendsHub).then(loadSessionState);
-}
-
-function acceptFriendRequest(requestId) {
-  apiRequest("/api/friends/accept", { method: "POST", body: JSON.stringify({ requestId }) }).then(loadFriendsHub);
-}
-
-function declineFriendRequest(requestId) {
-  apiRequest("/api/friends/decline", { method: "POST", body: JSON.stringify({ requestId }) }).then(loadFriendsHub);
-}
-
-function cancelFriendRequest(requestId) {
-  apiRequest("/api/friends/cancel", { method: "POST", body: JSON.stringify({ requestId }) }).then(loadFriendsHub);
-}
-
-function removeFriend(friendId) {
-  apiRequest("/api/friends/remove", { method: "POST", body: JSON.stringify({ friendId }) }).then(loadFriendsHub);
-}
-
-
 
 // =========================
 // REACTOR HUB
@@ -2275,7 +3014,7 @@ function initReactorHub() {
   renderReactorHub();
   apiRequest("/api/system/reactor")
     .then((data) => {
-      reactorState.data = data.reactor;
+      reactorState.data = normalizeReactorStats(data.reactor);
       reactorState.error = "";
       renderReactorHub();
     })
@@ -2289,76 +3028,114 @@ function initReactorHub() {
 function getReactorFallback() {
   return {
     status: reactorState.error || "Backend offline",
-    visitorsToday: 0,
-    activeSessions: 0,
-    totalUsers: 0,
-    openReports: 0,
-    storageCounts: [
-      { label: "Posts", count: 0, color: "#6c757d" },
-      { label: "Comments", count: 0, color: "#6c757d" },
-      { label: "DMs", count: 0, color: "#6c757d" },
-      { label: "Reports", count: 0, color: "#6c757d" }
+    headlineStats: [
+      { label: "Registered Crew", value: 0, detail: "No backend data" },
+      { label: "Total Activity", value: 0, detail: "No backend data" },
+      { label: "Engagement", value: 0, detail: "No backend data" },
+      { label: "Open Reports", value: 0, detail: "No backend data" }
     ],
-    zones: [{ name: "No backend data", visits: 0, color: "#6c757d" }],
-    events: [{ type: "warn", text: reactorState.error || "Waiting for Reactor backend data." }]
+    activityMix: [{ label: "No activity", count: 0, color: "#6c757d" }],
+    topTopics: [{ label: "No topics yet", count: 0, meta: "Waiting for posts.", color: "#6c757d" }],
+    networkStats: [{ label: "Backend", value: "Offline", detail: reactorState.error || "Waiting for Reactor backend data." }]
+  };
+}
+
+function normalizeReactorStats(raw) {
+  if (!raw) return getReactorFallback();
+  if (Array.isArray(raw.headlineStats)) return raw;
+
+  const counts = Array.isArray(raw.storageCounts) ? raw.storageCounts : [];
+  const countByLabel = new Map(counts.map((item) => [String(item.label || ""), Number(item.count || 0)]));
+  const posts = countByLabel.get("Posts") || 0;
+  const comments = countByLabel.get("Comments") || 0;
+  const dms = countByLabel.get("DMs") || 0;
+  const visits = countByLabel.get("Room Visits") || 0;
+  const reports = Number(raw.openReports ?? countByLabel.get("Reports") ?? 0);
+  const totalActivity = posts + comments + dms + visits;
+
+  return {
+    ...raw,
+    status: raw.status || "Community Stats Live",
+    headlineStats: [
+      { label: "Registered Crew", value: Number(raw.totalUsers || 0), detail: `${Number(raw.activeSessions || 0)} visible active now` },
+      { label: "Total Activity", value: totalActivity, detail: "Posts, comments, DMs, and visible visits" },
+      { label: "Engagement", value: posts + comments + dms, detail: `${posts} posts | ${comments} comments | ${dms} DMs` },
+      { label: "Open Reports", value: reports, detail: reports ? "Security review needed" : "No open tickets" }
+    ],
+    activityMix: counts.filter((item) => item.label !== "Reports"),
+    topTopics: [{ label: "Backend restart needed", count: 1, meta: "Restart API to enable topic rankings.", color: "#6c757d" }],
+    networkStats: [
+      { label: "Visible Active", value: Number(raw.activeSessions || 0), detail: `${Number(raw.visitorsToday || 0)} visible visits today` },
+      { label: "Registered Crew", value: Number(raw.totalUsers || 0), detail: "Loaded from current API" },
+      { label: "Activity Records", value: totalActivity, detail: "Legacy Reactor payload converted" },
+      { label: "Open Reports", value: reports, detail: reports ? "Security review needed" : "No open tickets" }
+    ]
   };
 }
 
 function renderReactorHub() {
   const data = reactorState.data || getReactorFallback();
-  const visitors = document.getElementById("reactor-visitors");
-  const active = document.getElementById("reactor-active");
-  const uptime = document.getElementById("reactor-uptime");
-  const latency = document.getElementById("reactor-latency");
+  const headline = data.headlineStats || getReactorFallback().headlineStats;
+  const crewTotal = document.getElementById("reactor-crew-total");
+  const activityTotal = document.getElementById("reactor-activity-total");
+  const engagementTotal = document.getElementById("reactor-engagement-total");
+  const openReports = document.getElementById("reactor-open-reports");
   const statusLabel = document.getElementById("reactor-status-label");
-  const healthList = document.querySelector(".reactor-health-list");
-  const list = document.getElementById("reactor-zone-activity");
-  const log = document.getElementById("reactor-event-log");
+  const activityMix = document.getElementById("reactor-activity-mix");
+  const topTopics = document.getElementById("reactor-top-topics");
+  const networkStats = document.getElementById("reactor-network-stats");
 
-  if (visitors) visitors.textContent = data.visitorsToday;
-  if (active) active.textContent = data.activeSessions;
-  if (uptime) uptime.textContent = data.totalUsers;
-  if (latency) latency.textContent = data.openReports;
+  if (crewTotal) crewTotal.textContent = formatStatValue(headline[0]?.value);
+  if (activityTotal) activityTotal.textContent = formatStatValue(headline[1]?.value);
+  if (engagementTotal) engagementTotal.textContent = formatStatValue(headline[2]?.value);
+  if (openReports) openReports.textContent = formatStatValue(headline[3]?.value);
   if (statusLabel) statusLabel.textContent = data.status;
 
-  if (healthList) {
-    const counts = data.storageCounts || [];
-    const maxCount = Math.max(...counts.map((item) => item.count), 1);
-    healthList.innerHTML = counts.map((item) => {
-      const percent = Math.round((item.count / maxCount) * 100);
-      return `
-      <div class="reactor-health-item">
-        <span>${escapeHtml(item.label)}</span>
-        <div class="dynamic-progress-bar"><div class="dynamic-progress-fill" style="width:${percent}%; background:${escapeHtml(item.color)};"></div></div>
-        <small>${item.count}</small>
-      </div>
-    `;
-    }).join("");
+  if (activityMix) {
+    activityMix.innerHTML = renderReactorBarRows(data.activityMix || []);
   }
 
-  if (list) {
-    const max = Math.max(...data.zones.map(z => z.visits), 1);
-    list.innerHTML = data.zones.map(zone => `
+  if (topTopics) {
+    topTopics.innerHTML = renderReactorBarRows(data.topTopics || [], true);
+  }
+
+  if (networkStats) {
+    networkStats.innerHTML = (data.networkStats || []).map((item) => `
+      <div class="reactor-metric-card">
+        <strong>${escapeHtml(formatStatValue(item.value))}</strong>
+        <span>${escapeHtml(item.label)}</span>
+        <small>${escapeHtml(item.detail || "")}</small>
+      </div>
+    `).join("");
+  }
+}
+
+function renderReactorBarRows(rows, includeMeta = false) {
+  if (!rows || rows.length === 0) return `<p class="friends-empty-msg">No stats available yet.</p>`;
+  const max = Math.max(...rows.map((row) => Number(row.count || 0)), 1);
+  return rows.map((row) => {
+    const count = Number(row.count || 0);
+    const percent = Math.round((count / max) * 100);
+    return `
       <div class="reactor-item">
-        <strong>${escapeHtml(zone.name)}</strong>
-        <div style="flex:1; margin: 0 10px;">
+        <div>
+          <strong>${escapeHtml(row.label)}</strong>
+          ${includeMeta ? `<small>${escapeHtml(row.meta || "")}</small>` : ""}
+        </div>
+        <div class="reactor-bar-track">
           <div class="dynamic-progress-bar">
-            <div class="dynamic-progress-fill" style="width:${Math.round((zone.visits / max) * 100)}%; background:${escapeHtml(zone.color)};"></div>
+            <div class="dynamic-progress-fill" style="width:${percent}%; background:${escapeHtml(row.color || "#6c757d")};"></div>
           </div>
         </div>
-        <span>${zone.visits} events</span>
+        <span>${formatStatValue(count)}</span>
       </div>
-    `).join("");
-  }
+    `;
+  }).join("");
+}
 
-  if (log) {
-    log.innerHTML = data.events.map(ev => `
-      <div class="reactor-event-item ${ev.type === "ok" ? "ok" : ""}">
-        <span>${ev.type === "ok" ? "OK" : "!"}</span>
-        <p>${escapeHtml(ev.text)}</p>
-      </div>
-    `).join("");
-  }
+function formatStatValue(value) {
+  if (typeof value === "number") return value.toLocaleString();
+  return String(value ?? "0");
 }
 
 // =========================
@@ -2519,7 +3296,9 @@ if (typeof window !== "undefined") {
 
 const electricalState = {
   drafts: [],
-  postCount: 0
+  postCount: 0,
+  imageFile: null,
+  imagePreviewUrl: ""
 };
  
 function initElectricalHub() {
@@ -2528,6 +3307,86 @@ function initElectricalHub() {
   renderElecDraftList();
   updateElecPreview();
 }
+
+function clearElecImageSelection() {
+  const input = document.getElementById("elec-image-input");
+  const status = document.getElementById("elec-image-status");
+  const previewImage = document.getElementById("elec-preview-image");
+  if (electricalState.imagePreviewUrl) URL.revokeObjectURL(electricalState.imagePreviewUrl);
+  electricalState.imageFile = null;
+  electricalState.imagePreviewUrl = "";
+  if (input) input.value = "";
+  if (status) {
+    status.textContent = "No image attached.";
+    status.style.color = "";
+  }
+  if (previewImage) {
+    previewImage.hidden = true;
+    previewImage.removeAttribute("src");
+  }
+}
+
+function handleElecImageSelection() {
+  const input = document.getElementById("elec-image-input");
+  const status = document.getElementById("elec-image-status");
+  const file = input?.files?.[0] || null;
+  if (!file) {
+    clearElecImageSelection();
+    return;
+  }
+
+  const allowedTypes = new Set(["image/jpeg", "image/png", "image/webp", "image/gif"]);
+  if (!allowedTypes.has(file.type)) {
+    if (input) input.value = "";
+    electricalState.imageFile = null;
+    if (electricalState.imagePreviewUrl) URL.revokeObjectURL(electricalState.imagePreviewUrl);
+    electricalState.imagePreviewUrl = "";
+    updateElecPreview();
+    if (status) {
+      status.textContent = "Image must be JPEG, PNG, WebP, or GIF.";
+      status.style.color = "#7f1d1d";
+    }
+    return;
+  }
+  if (file.size > 5 * 1024 * 1024) {
+    if (input) input.value = "";
+    electricalState.imageFile = null;
+    if (electricalState.imagePreviewUrl) URL.revokeObjectURL(electricalState.imagePreviewUrl);
+    electricalState.imagePreviewUrl = "";
+    updateElecPreview();
+    if (status) {
+      status.textContent = "Image must be 5 MB or smaller.";
+      status.style.color = "#7f1d1d";
+    }
+    return;
+  }
+
+  if (electricalState.imagePreviewUrl) URL.revokeObjectURL(electricalState.imagePreviewUrl);
+  electricalState.imageFile = file;
+  electricalState.imagePreviewUrl = URL.createObjectURL(file);
+  if (status) {
+    status.textContent = `Image attached: ${file.name}`;
+    status.style.color = "#0f766e";
+  }
+  updateElecPreview();
+}
+
+async function uploadElecImageIfNeeded() {
+  if (!electricalState.imageFile) return "";
+  const formData = new FormData();
+  formData.append("image", electricalState.imageFile);
+  const response = await fetch(`${API_BASE}/api/post-images`, {
+    method: "POST",
+    headers: {
+      "x-user-id": CURRENT_USER_ID,
+      "x-display-name": authedCrewName
+    },
+    body: formData
+  });
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok) throw new Error(data.error || "Image upload failed.");
+  return data.imageUrl || "";
+}
  
 function updateElecPreview() {
   const tag = document.getElementById("elec-tag-select");
@@ -2535,11 +3394,21 @@ function updateElecPreview() {
   const body = document.getElementById("elec-body-input");
   const previewTag = document.getElementById("elec-preview-tag");
   const previewTitle = document.getElementById("elec-preview-title");
+  const previewImage = document.getElementById("elec-preview-image");
   const previewBody = document.getElementById("elec-preview-body");
   if (!tag || !title || !body) return;
  
-  if (previewTag) previewTag.textContent = tag.value || "Space";
+  if (previewTag) previewTag.textContent = normalizePostCategory(tag.value);
   if (previewTitle) previewTitle.textContent = title.value.trim() || "Your heading will appear here.";
+  if (previewImage) {
+    if (electricalState.imagePreviewUrl) {
+      previewImage.src = electricalState.imagePreviewUrl;
+      previewImage.hidden = false;
+    } else {
+      previewImage.hidden = true;
+      previewImage.removeAttribute("src");
+    }
+  }
   if (previewBody) previewBody.textContent = body.value.trim() || "Your post body will appear here once you start typing.";
 }
  
@@ -2559,7 +3428,7 @@ function saveElecDraft() {
  
   electricalState.drafts.unshift({
     id: Date.now(),
-    tag: tag ? tag.value : "Space",
+    tag: tag ? normalizePostCategory(tag.value) : "Astrophysics",
     title: titleVal || "(No heading)",
     body: bodyVal || "(No body)",
     savedAt: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
@@ -2588,10 +3457,27 @@ async function submitElecPost() {
     return;
   }
  
+  let imageUrl = "";
+  if (electricalState.imageFile && status) {
+    status.textContent = "Uploading image...";
+    status.style.color = "#6b7280";
+  }
+  try {
+    imageUrl = await uploadElecImageIfNeeded();
+  } catch (error) {
+    console.warn("Image upload failed:", error.message);
+    if (status) {
+      status.textContent = `Image upload failed: ${error.message}`;
+      status.style.color = "#7f1d1d";
+    }
+    return;
+  }
+
   const draftPost = {
-    tag: tag ? tag.value : "Space",
+    tag: tag ? normalizePostCategory(tag.value) : "Astrophysics",
     title: titleVal,
     body: bodyVal,
+    imageUrl,
     authorId: CURRENT_USER_ID,
     authorName: authedCrewName || "Crewmate",
     comments: [],
@@ -2616,6 +3502,7 @@ async function submitElecPost() {
   electricalState.postCount++;
   title.value = "";
   body.value = "";
+  clearElecImageSelection();
   updateElecPreview();
   refreshPostViews();
  
@@ -2677,7 +3564,7 @@ function initO2Hub() {
   renderO2Feed();
   renderO2Detail();
   updateO2UnseenCount();
-  loadPostsForFeed("new", { unseen: "1" }).catch(() => loadPostsFromBackend());
+  loadPostsForFeed("new").catch(() => loadPostsFromBackend());
 }
  
 function setO2Filter(filter) {
@@ -2687,7 +3574,7 @@ function setO2Filter(filter) {
   });
   renderO2Feed();
   const feed = filter === "rising" ? "rising" : "new";
-  loadPostsForFeed(feed, { unseen: filter === "random" ? "" : "1" }).catch(() => {});
+  loadPostsForFeed(feed).catch(() => {});
 }
  
 function refreshO2Feed() {
@@ -2703,10 +3590,11 @@ function refreshO2Feed() {
  
 function getO2SortedPosts() {
   const unseen = getAllPosts().filter(p => !p.seenByMe);
-  if (o2State.activeFilter === "new") return [...unseen].sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
-  if (o2State.activeFilter === "rising") return [...unseen].sort((a, b) => getPostCommentCount(b) - getPostCommentCount(a));
-  if (o2State.activeFilter === "random") return [...unseen].sort(() => Math.random() - 0.5);
-  return unseen;
+  const source = unseen.length > 0 ? unseen : getAllPosts();
+  if (o2State.activeFilter === "new") return [...source].sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+  if (o2State.activeFilter === "rising") return [...source].sort((a, b) => getPostCommentCount(b) - getPostCommentCount(a));
+  if (o2State.activeFilter === "random") return [...source].sort(() => Math.random() - 0.5);
+  return source;
 }
  
 function renderO2Feed() {
@@ -2714,11 +3602,11 @@ function renderO2Feed() {
   if (!list) return;
   const posts = getO2SortedPosts();
   if (posts.length === 0) {
-    list.innerHTML = `<p class="o2-meta">You've seen everything in this filter. Hit Refresh to reset.</p>`;
+    list.innerHTML = `<p class="o2-meta">No transmissions available yet. Create one in Electrical first.</p>`;
     return;
   }
   list.innerHTML = posts.map(post => `
-    <div class="o2-feed-item ${post.id === o2State.selectedPostId ? "selected" : ""}" onclick="selectO2Post(${post.id})">
+    <div class="o2-feed-item ${post.id === o2State.selectedPostId ? "selected" : ""}" onclick="selectO2Post('${escapeInlineArg(post.id)}')">
       <p class="o2-feed-tag">${post.tag}</p>
       <p class="o2-feed-title">${post.title}</p>
     </div>
@@ -2750,6 +3638,7 @@ function renderO2Detail() {
   updateDeleteButton("o2-delete-post-btn", post);
   detail.innerHTML = `
     <p style="font-weight:bold; margin:0 0 6px;">${post.title}</p>
+    ${renderPostImage(post)}
     <p style="margin:0; font-size:13px;">${post.body}</p>
   `;
   if (actions) actions.style.display = "flex";
@@ -2828,7 +3717,7 @@ function renderWeaponsFeed() {
     const isControversial = weaponsState.activeSort === "controversial";
     const badge = isControversial ? `<span class="weapons-trend-badge">Split</span>` : "";
     return `
-      <div class="weapons-feed-item ${post.id === weaponsState.selectedPostId ? "selected" : ""}" onclick="selectWeaponsPost(${post.id})">
+      <div class="weapons-feed-item ${post.id === weaponsState.selectedPostId ? "selected" : ""}" onclick="selectWeaponsPost('${escapeInlineArg(post.id)}')">
         <p class="weapons-feed-tag">${post.tag}</p>
         <p class="weapons-feed-title">${badge}${post.title}</p>
         <p class="weapons-feed-meta">${getPostScoreLabel(post)} | ${post.downvotes} down | ${getPostCommentCount(post)} comments</p>
@@ -2862,6 +3751,7 @@ function renderWeaponsDetail() {
   updateDeleteButton("weapons-delete-post-btn", post);
   detail.innerHTML = `
     <p style="font-weight:bold; margin:0 0 6px;">${post.title}</p>
+    ${renderPostImage(post)}
     <p style="margin:0; font-size:13px;">${post.body}</p>
   `;
   if (actions) actions.style.display = "flex";
@@ -2904,8 +3794,8 @@ function renderStorageSavedList() {
   }
 
   list.innerHTML = items.map(post => `
-    <div class="storage-saved-item ${post.id === storageState.selectedPostId ? "selected" : ""}" onclick="selectStoragePost(${post.id})">
-      <p class="storage-meta">${post.tag || "Space"} | ${getPostScoreLabel(post)}</p>
+    <div class="storage-saved-item ${post.id === storageState.selectedPostId ? "selected" : ""}" onclick="selectStoragePost('${escapeInlineArg(post.id)}')">
+      <p class="storage-meta">${normalizePostCategory(post.tag)} | ${getPostScoreLabel(post)}</p>
       <p><strong>${post.title}</strong></p>
     </div>
   `).join("");
@@ -2931,9 +3821,10 @@ function renderStorageDetail() {
     return;
   }
 
-  meta.textContent = `${post.tag || "Space"} | ${getPostScoreLabel(post)}`;
+  meta.textContent = `${normalizePostCategory(post.tag)} | ${getPostScoreLabel(post)}`;
   detail.innerHTML = `
     <p style="font-weight:bold; margin:0 0 6px;">${post.title}</p>
+    ${renderPostImage(post)}
     <p style="margin:0; font-size:13px; text-transform:none;">${post.body || "No details available."}</p>
   `;
   actions.style.display = "block";

@@ -1,7 +1,9 @@
 import { createServer } from "node:http";
 import { createDecipheriv, createHash, createCipheriv, randomBytes, randomUUID, scryptSync, timingSafeEqual } from "node:crypto";
 import { existsSync, mkdirSync, readFileSync } from "node:fs";
-import { dirname, join } from "node:path";
+import net from "node:net";
+import { dirname, join, resolve } from "node:path";
+import tls from "node:tls";
 import { fileURLToPath } from "node:url";
 import { DatabaseSync } from "node:sqlite";
 
@@ -27,7 +29,11 @@ loadEnvFile();
 const dataDir = join(__dirname, "data");
 mkdirSync(dataDir, { recursive: true });
 
-const db = new DatabaseSync(join(dataDir, "devspace.sqlite"));
+const dbPath = process.env.APP_DATABASE_PATH
+  ? resolve(process.env.APP_DATABASE_PATH)
+  : join(dataDir, "devspace.sqlite");
+mkdirSync(dirname(dbPath), { recursive: true });
+const db = new DatabaseSync(dbPath);
 const PORT = Number(process.env.API_PORT || 4000);
 const NASA_API_KEY = process.env.NASA_API_KEY || "DEMO_KEY";
 const DEMO_USER_ID = "demo-user";
@@ -43,6 +49,124 @@ const APOD_CACHE_TTL_MS = 60 * 60 * 1000;
 const APOD_API_TIMEOUT_MS = 5000;
 const APOD_HTML_TIMEOUT_MS = 8000;
 const ACTIVE_SESSION_WINDOW_MS = 15 * 60 * 1000;
+const REPORT_EMAIL_TO = process.env.REPORT_EMAIL_TO || "";
+const REPORT_EMAIL_FROM = process.env.REPORT_EMAIL_FROM || process.env.SMTP_USER || "reports@devspace.local";
+const SMTP_HOST = process.env.SMTP_HOST || "";
+const SMTP_PORT = Number(process.env.SMTP_PORT || (process.env.SMTP_SECURE === "true" ? 465 : 587));
+const SMTP_SECURE = process.env.SMTP_SECURE === "true" || SMTP_PORT === 465;
+const SMTP_STARTTLS = process.env.SMTP_STARTTLS !== "false";
+const SMTP_USER = process.env.SMTP_USER || "";
+const SMTP_PASS = String(process.env.SMTP_PASS || "").replace(/\s+/g, "");
+const CLOUDINARY_CLOUD_NAME = process.env.CLOUDINARY_CLOUD_NAME || "";
+const CLOUDINARY_API_KEY = process.env.CLOUDINARY_API_KEY || "";
+const CLOUDINARY_API_SECRET = process.env.CLOUDINARY_API_SECRET || "";
+const POST_IMAGE_MAX_BYTES = 5 * 1024 * 1024;
+const POST_IMAGE_TYPES = new Set(["image/jpeg", "image/png", "image/webp", "image/gif"]);
+const HIDE_GENERATED_CREW = process.env.HIDE_GENERATED_CREW !== "0";
+const DEFAULT_PRIVACY_SETTINGS = {
+  privacyMode: "Enabled",
+  dmPermissions: "Crewmates Only",
+  contentFilter: "Standard",
+  showOnlinePresence: true,
+  shareZoneActivity: true,
+  criticalAlerts: true,
+};
+const POST_CATEGORIES = new Set(["Astrophysics", "Astrometry", "Astrogeology", "Astrobiology"]);
+const LEGACY_POST_CATEGORY_MAP = {
+  Space: "Astrophysics",
+  Science: "Astrobiology",
+  Tech: "Astrometry",
+  Discussion: "Astrogeology",
+  Social: "Astrobiology",
+  Other: "Astrophysics",
+};
+const ASTRONOMY_SEED_USER = {
+  id: "observatory-crew",
+  email: "observatory@devspace.local",
+  displayName: "Observatory Crew",
+  avatarColor: "purple",
+};
+const OLD_SEED_POST_TITLES = [
+  "Cafeteria meetup",
+  "Electrical online",
+  "Reactor Calibration",
+  "Storage strategy",
+  "Admin activity",
+  "Oxygen levels stable. Cafeteria meetup in 5.",
+  "Electrical is back online. Posting from the power room.",
+  "New mission unlocked: Reactor Calibration.",
+  "Saved a strategy thread near Storage.",
+  "Admin terminal says crew activity is rising.",
+  "Debug post check",
+  "Node fetch post check",
+  "Valid backend post",
+];
+const ASTRONOMY_SEED_POSTS = [
+  {
+    id: "seed-astrophysics-cmb-map",
+    title: "What does the cosmic microwave background still leave unresolved?",
+    body: "Cosmology has precise temperature maps, but questions around inflation, dark matter, and early structure growth still shape how we interpret the CMB.",
+    tag: "Astrophysics",
+    roomId: "reactor",
+    likes: 42,
+  },
+  {
+    id: "seed-astrophysics-solar-oscillations",
+    title: "How do solar oscillations reveal the Sun's interior?",
+    body: "Helioseismology tracks pressure waves across the solar surface to infer rotation, density, magnetic behavior, and energy transport below the photosphere.",
+    tag: "Astrophysics",
+    roomId: "reactor",
+    likes: 36,
+  },
+  {
+    id: "seed-astrometry-gaia-distance-ladder",
+    title: "Why does Gaia astrometry matter for the cosmic distance ladder?",
+    body: "Accurate parallax and proper-motion measurements calibrate nearby stars, which strengthens distance estimates used for Cepheids, supernovae, and galaxy-scale measurements.",
+    tag: "Astrometry",
+    roomId: "navigation",
+    likes: 39,
+  },
+  {
+    id: "seed-astrometry-exoplanet-wobble",
+    title: "What can tiny stellar wobbles tell us about exoplanets?",
+    body: "Astrometric shifts can reveal planetary masses and orbits, especially when paired with transit and radial-velocity observations.",
+    tag: "Astrometry",
+    roomId: "navigation",
+    likes: 31,
+  },
+  {
+    id: "seed-astrogeology-lunar-regolith",
+    title: "Why is lunar regolith such a difficult engineering material?",
+    body: "Selenography and planetary geology show that lunar dust is sharp, charged, abrasive, and chemically reactive enough to affect habitats, suits, seals, and instruments.",
+    tag: "Astrogeology",
+    roomId: "storage",
+    likes: 34,
+  },
+  {
+    id: "seed-astrogeology-mars-valleys",
+    title: "What do Martian valley networks imply about ancient water?",
+    body: "Areology compares channel shapes, crater ages, minerals, and sediment deposits to test whether early Mars had persistent rainfall, groundwater, or episodic meltwater.",
+    tag: "Astrogeology",
+    roomId: "storage",
+    likes: 37,
+  },
+  {
+    id: "seed-astrobiology-europa-plumes",
+    title: "What would make Europa plume chemistry compelling for life?",
+    body: "Astrobiology looks for chemical disequilibrium, organics, salts, and energy gradients that could connect an ocean environment to potential biological processes.",
+    tag: "Astrobiology",
+    roomId: "medbay",
+    likes: 45,
+  },
+  {
+    id: "seed-astrobiology-atmosphere-false-positives",
+    title: "Which biosignature gases have the hardest false positives?",
+    body: "Astrochemistry helps separate possible biological signals from photochemistry, volcanism, atmospheric escape, and star-planet interaction effects.",
+    tag: "Astrobiology",
+    roomId: "medbay",
+    likes: 41,
+  },
+];
 let apodCache = null;
 const ENC_KEY = createHash("sha256")
   .update(process.env.APP_ENCRYPTION_KEY || "devspace-local-encryption-key-change-me")
@@ -80,6 +204,24 @@ function readBody(req) {
         reject(new Error("Invalid JSON body"));
       }
     });
+    req.on("error", reject);
+  });
+}
+
+function readRawBody(req, maxBytes = 1_000_000) {
+  return new Promise((resolve, reject) => {
+    const chunks = [];
+    let total = 0;
+    req.on("data", (chunk) => {
+      total += chunk.length;
+      if (total > maxBytes) {
+        reject(new Error("Request body too large"));
+        req.destroy();
+        return;
+      }
+      chunks.push(chunk);
+    });
+    req.on("end", () => resolve(Buffer.concat(chunks)));
     req.on("error", reject);
   });
 }
@@ -143,6 +285,28 @@ function slugify(input) {
     .slice(0, 40);
 }
 
+function normalizePostCategory(value) {
+  const raw = String(value || "").trim();
+  if (POST_CATEGORIES.has(raw)) return raw;
+  return LEGACY_POST_CATEGORY_MAP[raw] || "Astrophysics";
+}
+
+function normalizeImageUrl(value) {
+  const raw = String(value || "").trim();
+  if (!raw) return "";
+  if (raw.length > 2048) throw new Error("Image URL is too long.");
+  let parsed;
+  try {
+    parsed = new URL(raw);
+  } catch {
+    throw new Error("Image URL must be a valid URL.");
+  }
+  if (!["http:", "https:"].includes(parsed.protocol)) {
+    throw new Error("Image URL must use HTTP or HTTPS.");
+  }
+  return parsed.toString();
+}
+
 function getUserId(req) {
   const raw = req.headers["x-user-id"];
   if (!raw) return DEMO_USER_ID;
@@ -188,6 +352,230 @@ function createNotification(userId, message) {
     [id, userId, message, 0, timestamp]
   );
   broadcastSSE("notification_created", { id, userId, message, isRead: false, createdAt: timestamp });
+}
+
+function parseEmailList(value) {
+  return String(value || "")
+    .split(",")
+    .map((email) => email.trim())
+    .filter(Boolean);
+}
+
+function encodeEmailHeader(value) {
+  return String(value || "").replace(/[\r\n]/g, " ").trim();
+}
+
+function formatReportEmail(report) {
+  const target = report.target ? report.target : "None provided";
+  const subject = `[DevSpace] New ${report.type} report`;
+  const text = [
+    "A new Security report was submitted.",
+    "",
+    `Report ID: ${report.id}`,
+    `Type: ${report.type}`,
+    `Reporter: ${report.reporterId}`,
+    `Target: ${target}`,
+    `Status: ${report.status}`,
+    `Created: ${report.createdAt}`,
+    "",
+    "Details:",
+    report.detail,
+  ].join("\n");
+  return { subject, text };
+}
+
+function createSmtpReader(socket) {
+  let buffer = "";
+  const pending = [];
+
+  socket.setEncoding("utf8");
+  socket.on("data", (chunk) => {
+    buffer += chunk;
+    flush();
+  });
+  socket.on("error", (error) => {
+    while (pending.length) pending.shift().reject(error);
+  });
+
+  function flush() {
+    const lines = buffer.split(/\r?\n/);
+    buffer = lines.pop() || "";
+    for (const line of lines) {
+      if (!line) continue;
+      if (/^\d{3} /.test(line) && pending.length) {
+        pending.shift().resolve(line);
+      }
+    }
+  }
+
+  return function readResponse() {
+    return new Promise((resolve, reject) => {
+      pending.push({ resolve, reject });
+      flush();
+    });
+  };
+}
+
+async function smtpCommand(socket, readResponse, command, expectedCodes) {
+  if (command) socket.write(`${command}\r\n`);
+  const response = await readResponse();
+  const code = Number(response.slice(0, 3));
+  if (!expectedCodes.includes(code)) {
+    throw new Error(`SMTP command failed: ${response}`);
+  }
+  return response;
+}
+
+function connectSmtpSocket() {
+  return new Promise((resolve, reject) => {
+    const socket = SMTP_SECURE
+      ? tls.connect({ host: SMTP_HOST, port: SMTP_PORT, servername: SMTP_HOST })
+      : net.connect({ host: SMTP_HOST, port: SMTP_PORT });
+    socket.setTimeout(10000, () => {
+      socket.destroy(new Error("SMTP connection timed out."));
+    });
+    socket.once(SMTP_SECURE ? "secureConnect" : "connect", () => resolve(socket));
+    socket.once("error", reject);
+  });
+}
+
+function upgradeSmtpSocket(socket) {
+  return new Promise((resolve, reject) => {
+    const secureSocket = tls.connect({ socket, servername: SMTP_HOST });
+    secureSocket.setTimeout(10000, () => {
+      secureSocket.destroy(new Error("SMTP TLS upgrade timed out."));
+    });
+    secureSocket.once("secureConnect", () => resolve(secureSocket));
+    secureSocket.once("error", reject);
+  });
+}
+
+async function sendSmtpMail({ to, from, subject, text }) {
+  let socket = await connectSmtpSocket();
+  let readResponse = createSmtpReader(socket);
+  await smtpCommand(socket, readResponse, "", [220]);
+  await smtpCommand(socket, readResponse, "EHLO devspace.local", [250]);
+
+  if (!SMTP_SECURE && SMTP_STARTTLS) {
+    await smtpCommand(socket, readResponse, "STARTTLS", [220]);
+    socket = await upgradeSmtpSocket(socket);
+    readResponse = createSmtpReader(socket);
+    await smtpCommand(socket, readResponse, "EHLO devspace.local", [250]);
+  }
+
+  if (SMTP_USER && SMTP_PASS) {
+    const auth = Buffer.from(`\0${SMTP_USER}\0${SMTP_PASS}`).toString("base64");
+    await smtpCommand(socket, readResponse, `AUTH PLAIN ${auth}`, [235]);
+  }
+
+  await smtpCommand(socket, readResponse, `MAIL FROM:<${from}>`, [250]);
+  for (const recipient of to) {
+    await smtpCommand(socket, readResponse, `RCPT TO:<${recipient}>`, [250, 251]);
+  }
+  await smtpCommand(socket, readResponse, "DATA", [354]);
+
+  const message = [
+    `From: ${encodeEmailHeader(from)}`,
+    `To: ${to.map(encodeEmailHeader).join(", ")}`,
+    `Subject: ${encodeEmailHeader(subject)}`,
+    "Content-Type: text/plain; charset=utf-8",
+    "",
+    text.replace(/\r?\n/g, "\r\n").replace(/^\./gm, ".."),
+    ".",
+  ].join("\r\n");
+  await smtpCommand(socket, readResponse, message, [250]);
+  await smtpCommand(socket, readResponse, "QUIT", [221]);
+  socket.end();
+}
+
+async function emailDevelopersAboutReport(report) {
+  const recipients = parseEmailList(REPORT_EMAIL_TO);
+  if (!SMTP_HOST || recipients.length === 0) {
+    console.warn("Report email skipped: configure SMTP_HOST and REPORT_EMAIL_TO to email devs.");
+    return { configured: false, sent: false, reason: "missing SMTP_HOST or REPORT_EMAIL_TO" };
+  }
+
+  const email = formatReportEmail(report);
+  try {
+    await sendSmtpMail({
+      to: recipients,
+      from: REPORT_EMAIL_FROM,
+      subject: email.subject,
+      text: email.text,
+    });
+    return { configured: true, sent: true, recipients };
+  } catch (error) {
+    console.warn(`Report email failed: ${error.message}`);
+    return { configured: true, sent: false, error: error.message };
+  }
+}
+
+function parseMultipartFile(buffer, contentType, fieldName) {
+  const boundaryMatch = String(contentType || "").match(/boundary=([^;]+)/i);
+  if (!boundaryMatch) throw new Error("Missing multipart boundary.");
+
+  const boundary = boundaryMatch[1].replace(/^"|"$/g, "");
+  const body = buffer.toString("binary");
+  const parts = body.split(`--${boundary}`);
+  for (const part of parts) {
+    if (!part.includes(`name="${fieldName}"`)) continue;
+    const headerEnd = part.indexOf("\r\n\r\n");
+    if (headerEnd === -1) throw new Error("Invalid multipart payload.");
+
+    const header = part.slice(0, headerEnd);
+    const filenameMatch = header.match(/filename="([^"]*)"/i);
+    const typeMatch = header.match(/Content-Type:\s*([^\r\n]+)/i);
+    let rawContent = part.slice(headerEnd + 4);
+    if (rawContent.endsWith("\r\n")) rawContent = rawContent.slice(0, -2);
+    const fileBuffer = Buffer.from(rawContent, "binary");
+    return {
+      filename: filenameMatch ? filenameMatch[1] : "post-image",
+      contentType: typeMatch ? typeMatch[1].trim().toLowerCase() : "",
+      buffer: fileBuffer,
+    };
+  }
+  throw new Error("Upload must include an image file.");
+}
+
+function getCloudinarySignature(params) {
+  const base = Object.entries(params)
+    .filter(([, value]) => value !== undefined && value !== "")
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([key, value]) => `${key}=${value}`)
+    .join("&");
+  return createHash("sha1").update(`${base}${CLOUDINARY_API_SECRET}`).digest("hex");
+}
+
+async function uploadPostImageToCloudinary(file) {
+  if (!POST_IMAGE_TYPES.has(file.contentType)) {
+    throw new Error("Image must be JPEG, PNG, WebP, or GIF.");
+  }
+  if (!file.buffer.length || file.buffer.length > POST_IMAGE_MAX_BYTES) {
+    throw new Error("Image must be 1 byte to 5 MB.");
+  }
+  if (!CLOUDINARY_CLOUD_NAME || !CLOUDINARY_API_KEY || !CLOUDINARY_API_SECRET) {
+    throw new Error("Cloudinary is not configured.");
+  }
+
+  const timestamp = Math.floor(Date.now() / 1000);
+  const folder = "da-crewmates/posts";
+  const uploadParams = { folder, timestamp };
+  const form = new FormData();
+  form.set("file", new Blob([file.buffer], { type: file.contentType }), file.filename || "post-image");
+  form.set("api_key", CLOUDINARY_API_KEY);
+  form.set("timestamp", String(timestamp));
+  form.set("folder", folder);
+  form.set("signature", getCloudinarySignature(uploadParams));
+
+  const response = await fetch(`https://api.cloudinary.com/v1_1/${encodeURIComponent(CLOUDINARY_CLOUD_NAME)}/image/upload`, {
+    method: "POST",
+    body: form,
+  });
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok || !data.secure_url) {
+    throw new Error(data.error?.message || "Cloudinary upload failed.");
+  }
+  return normalizeImageUrl(data.secure_url);
 }
 
 function getTodayDateString() {
@@ -244,7 +632,8 @@ function setupDatabase() {
       content TEXT NOT NULL,
       title TEXT,
       body TEXT,
-      tag TEXT NOT NULL DEFAULT 'Space',
+      tag TEXT NOT NULL DEFAULT 'Astrophysics',
+      image_url TEXT,
       room_id TEXT NOT NULL DEFAULT 'cafeteria',
       likes_count INTEGER NOT NULL DEFAULT 0,
       created_at TEXT NOT NULL
@@ -287,9 +676,21 @@ function setupDatabase() {
   const hasEmailEncrypted = userCols.some((col) => col.name === "email_encrypted");
   const hasEmailLookup = userCols.some((col) => col.name === "email_lookup");
   const hasBio = userCols.some((col) => col.name === "bio");
+  const hasPrivacyMode = userCols.some((col) => col.name === "privacy_mode");
+  const hasDmPermissions = userCols.some((col) => col.name === "dm_permissions");
+  const hasContentFilter = userCols.some((col) => col.name === "content_filter");
+  const hasShowOnlinePresence = userCols.some((col) => col.name === "show_online_presence");
+  const hasShareZoneActivity = userCols.some((col) => col.name === "share_zone_activity");
+  const hasCriticalAlerts = userCols.some((col) => col.name === "critical_alerts");
   if (!hasPasswordHash) db.exec("ALTER TABLE users ADD COLUMN password_hash TEXT");
   if (!hasEmailEncrypted) db.exec("ALTER TABLE users ADD COLUMN email_encrypted TEXT");
   if (!hasEmailLookup) db.exec("ALTER TABLE users ADD COLUMN email_lookup TEXT");
+  if (!hasPrivacyMode) db.exec("ALTER TABLE users ADD COLUMN privacy_mode TEXT DEFAULT 'Enabled'");
+  if (!hasDmPermissions) db.exec("ALTER TABLE users ADD COLUMN dm_permissions TEXT DEFAULT 'Crewmates Only'");
+  if (!hasContentFilter) db.exec("ALTER TABLE users ADD COLUMN content_filter TEXT DEFAULT 'Standard'");
+  if (!hasShowOnlinePresence) db.exec("ALTER TABLE users ADD COLUMN show_online_presence INTEGER DEFAULT 1");
+  if (!hasShareZoneActivity) db.exec("ALTER TABLE users ADD COLUMN share_zone_activity INTEGER DEFAULT 1");
+  if (!hasCriticalAlerts) db.exec("ALTER TABLE users ADD COLUMN critical_alerts INTEGER DEFAULT 1");
   if (!hasBio) {
     db.exec("ALTER TABLE users ADD COLUMN bio TEXT DEFAULT ''");
     db.exec("ALTER TABLE users ADD COLUMN decorations TEXT DEFAULT '[]'");
@@ -318,6 +719,13 @@ function setupDatabase() {
       following_id TEXT NOT NULL REFERENCES users(id),
       created_at TEXT NOT NULL,
       PRIMARY KEY (follower_id, following_id)
+    );
+
+    CREATE TABLE IF NOT EXISTS blocked_users (
+      blocker_id TEXT NOT NULL REFERENCES users(id),
+      blocked_id TEXT NOT NULL REFERENCES users(id),
+      created_at TEXT NOT NULL,
+      PRIMARY KEY (blocker_id, blocked_id)
     );
 
     CREATE TABLE IF NOT EXISTS post_votes (
@@ -373,7 +781,8 @@ function setupDatabase() {
       thread_id TEXT NOT NULL REFERENCES dm_threads(id),
       sender_id TEXT NOT NULL REFERENCES users(id),
       body TEXT NOT NULL,
-      created_at TEXT NOT NULL
+      created_at TEXT NOT NULL,
+      read_at TEXT
     );
 
     CREATE TABLE IF NOT EXISTS security_reports (
@@ -412,25 +821,47 @@ function setupDatabase() {
       completed_at TEXT NOT NULL
     );
 
+    CREATE TABLE IF NOT EXISTS room_visits (
+      id TEXT PRIMARY KEY,
+      user_id TEXT NOT NULL REFERENCES users(id),
+      room_id TEXT NOT NULL,
+      room_name TEXT NOT NULL,
+      entered_at TEXT NOT NULL
+    );
+
     CREATE INDEX IF NOT EXISTS friend_requests_lookup_idx ON friend_requests(sender_id, receiver_id, status);
     CREATE INDEX IF NOT EXISTS friendships_pair_idx ON friendships(user_id1, user_id2);
+    CREATE INDEX IF NOT EXISTS follows_following_idx ON follows(following_id, follower_id);
+    CREATE INDEX IF NOT EXISTS blocked_users_blocked_idx ON blocked_users(blocked_id, blocker_id);
     CREATE INDEX IF NOT EXISTS dm_threads_user1_idx ON dm_threads(user_id1);
     CREATE INDEX IF NOT EXISTS dm_threads_user2_idx ON dm_threads(user_id2);
     CREATE INDEX IF NOT EXISTS dm_messages_thread_idx ON dm_messages(thread_id, created_at);
     CREATE INDEX IF NOT EXISTS security_reports_status_idx ON security_reports(status, created_at);
+    CREATE INDEX IF NOT EXISTS room_visits_user_idx ON room_visits(user_id, entered_at);
+    CREATE INDEX IF NOT EXISTS room_visits_room_idx ON room_visits(room_id, entered_at);
   `);
 
   const refreshedPostCols = all("PRAGMA table_info(posts)");
   const hasTitle = refreshedPostCols.some((col) => col.name === "title");
   const hasBody = refreshedPostCols.some((col) => col.name === "body");
   const hasTag = refreshedPostCols.some((col) => col.name === "tag");
+  const hasImageUrl = refreshedPostCols.some((col) => col.name === "image_url");
   if (!hasTitle) db.exec("ALTER TABLE posts ADD COLUMN title TEXT");
   if (!hasBody) db.exec("ALTER TABLE posts ADD COLUMN body TEXT");
-  if (!hasTag) db.exec("ALTER TABLE posts ADD COLUMN tag TEXT NOT NULL DEFAULT 'Space'");
+  if (!hasTag) db.exec("ALTER TABLE posts ADD COLUMN tag TEXT NOT NULL DEFAULT 'Astrophysics'");
+  if (!hasImageUrl) db.exec("ALTER TABLE posts ADD COLUMN image_url TEXT");
+
+  const dmMessageCols = all("PRAGMA table_info(dm_messages)");
+  const hasReadAt = dmMessageCols.some((col) => col.name === "read_at");
+  if (!hasReadAt) db.exec("ALTER TABLE dm_messages ADD COLUMN read_at TEXT");
 
   run("UPDATE posts SET body = content WHERE body IS NULL OR body = ''");
   run("UPDATE posts SET title = substr(content, 1, 80) WHERE title IS NULL OR title = ''");
-  run("UPDATE posts SET tag = 'Space' WHERE tag IS NULL OR tag = ''");
+  run("UPDATE posts SET tag = 'Astrophysics' WHERE tag IS NULL OR tag = ''");
+  run("UPDATE posts SET tag = 'Astrophysics' WHERE tag IN ('Space', 'Other')");
+  run("UPDATE posts SET tag = 'Astrobiology' WHERE tag IN ('Science', 'Social')");
+  run("UPDATE posts SET tag = 'Astrometry' WHERE tag = 'Tech'");
+  run("UPDATE posts SET tag = 'Astrogeology' WHERE tag = 'Discussion'");
 
   const usersNeedingEmailMigration = all(
     "SELECT id, email FROM users WHERE (email_encrypted IS NULL OR email_lookup IS NULL) AND email IS NOT NULL"
@@ -452,26 +883,6 @@ function seedDatabase() {
     "INSERT INTO users (id, email, display_name, avatar_color, created_at) VALUES (?, ?, ?, ?, ?)",
     [DEMO_USER_ID, "demo@devspace.local", "DevSpace Crew", "cyan", now()]
   );
-
-  const posts = [
-    ["Cyan", "Cafeteria meetup", "Oxygen levels stable. Cafeteria meetup in 5.", "Space", "cafeteria", 12],
-    ["Red", "Electrical online", "Electrical is back online. Posting from the power room.", "Tech", "electrical", 8],
-    ["Yellow", "Reactor Calibration", "New mission unlocked: Reactor Calibration.", "Science", "reactor", 15],
-    ["Purple", "Storage strategy", "Saved a strategy thread near Storage.", "Discussion", "storage", 6],
-    ["Green", "Admin activity", "Admin terminal says crew activity is rising.", "Discussion", "admin", 11],
-  ];
-
-  for (const [author, title, body, tag, roomId, likes] of posts) {
-    const userId = `${author.toLowerCase()}-crew`;
-    run(
-      "INSERT INTO users (id, email, display_name, avatar_color, created_at) VALUES (?, ?, ?, ?, ?)",
-      [userId, `${author.toLowerCase()}@devspace.local`, author, author.toLowerCase(), now()]
-    );
-    run(
-      "INSERT INTO posts (id, user_id, content, title, body, tag, room_id, likes_count, upvotes_count, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
-      [randomUUID(), userId, body, title, body, tag, roomId, likes, likes, now()]
-    );
-  }
 
   const missions = [
     ["reactor-calibration", "Reactor Calibration", "Coordinate with crew to stabilize the reactor core.", "reactor", 25],
@@ -499,9 +910,6 @@ function seedDatabase() {
     );
   }
 
-  run("INSERT OR IGNORE INTO follows (follower_id, following_id, created_at) VALUES (?, ?, ?)", [DEMO_USER_ID, "cyan-crew", now()]);
-  run("INSERT OR IGNORE INTO follows (follower_id, following_id, created_at) VALUES (?, ?, ?)", [DEMO_USER_ID, "yellow-crew", now()]);
-  run("INSERT OR IGNORE INTO follows (follower_id, following_id, created_at) VALUES (?, ?, ?)", ["purple-crew", DEMO_USER_ID, now()]);
 }
 
 function ensureDemoCrewmates() {
@@ -536,7 +944,8 @@ function serializePost(row) {
     title: row.title || String(row.content || "").slice(0, 80) || "(Untitled transmission)",
     body: row.body || row.content || "",
     content: row.body || row.content || "",
-    tag: row.tag || "Space",
+    tag: normalizePostCategory(row.tag),
+    imageUrl: row.image_url || "",
     roomId: row.room_id,
     score: upvotes,
     likes: upvotes,
@@ -598,6 +1007,51 @@ function absoluteApodUrl(path) {
   }
 }
 
+function ensureAstronomySeedContent() {
+  for (const title of OLD_SEED_POST_TITLES) {
+    run("DELETE FROM saved_posts WHERE post_id IN (SELECT id FROM posts WHERE title = ?)", [title]);
+    run("DELETE FROM seen_posts WHERE post_id IN (SELECT id FROM posts WHERE title = ?)", [title]);
+    run("DELETE FROM post_votes WHERE post_id IN (SELECT id FROM posts WHERE title = ?)", [title]);
+    run("DELETE FROM comments WHERE post_id IN (SELECT id FROM posts WHERE title = ?)", [title]);
+    run("DELETE FROM posts WHERE title = ?", [title]);
+  }
+
+  run(
+    `INSERT OR IGNORE INTO users (id, email, display_name, avatar_color, created_at, email_encrypted, email_lookup)
+     VALUES (?, ?, ?, ?, ?, ?, ?)`,
+    [
+      ASTRONOMY_SEED_USER.id,
+      ASTRONOMY_SEED_USER.email,
+      ASTRONOMY_SEED_USER.displayName,
+      ASTRONOMY_SEED_USER.avatarColor,
+      now(),
+      encryptText(ASTRONOMY_SEED_USER.email),
+      hashEmail(ASTRONOMY_SEED_USER.email),
+    ]
+  );
+
+  for (const post of ASTRONOMY_SEED_POSTS) {
+    run(
+      `INSERT OR IGNORE INTO posts (id, user_id, content, title, body, tag, image_url, room_id, likes_count, upvotes_count, downvotes_count, created_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [
+        post.id,
+        ASTRONOMY_SEED_USER.id,
+        post.body,
+        post.title,
+        post.body,
+        post.tag,
+        "",
+        post.roomId,
+        post.likes,
+        post.likes,
+        0,
+        now(),
+      ]
+    );
+  }
+}
+
 async function fetchApodFromApi() {
   const apodRes = await fetch(`https://api.nasa.gov/planetary/apod?api_key=${encodeURIComponent(NASA_API_KEY)}&thumbs=true`, {
     signal: AbortSignal.timeout(APOD_API_TIMEOUT_MS),
@@ -652,8 +1106,118 @@ function orderedUserPair(userId, otherUserId) {
 }
 
 function areFriends(userId, otherUserId) {
-  const [u1, u2] = orderedUserPair(userId, otherUserId);
-  return Boolean(get("SELECT 1 FROM friendships WHERE user_id1 = ? AND user_id2 = ?", [u1, u2]));
+  return Boolean(
+    get("SELECT 1 FROM follows WHERE follower_id = ? AND following_id = ?", [userId, otherUserId]) &&
+    get("SELECT 1 FROM follows WHERE follower_id = ? AND following_id = ?", [otherUserId, userId])
+  );
+}
+
+function hasBlocked(blockerId, blockedId) {
+  return Boolean(get("SELECT 1 FROM blocked_users WHERE blocker_id = ? AND blocked_id = ?", [blockerId, blockedId]));
+}
+
+function areBlockedEitherWay(userId, otherUserId) {
+  return hasBlocked(userId, otherUserId) || hasBlocked(otherUserId, userId);
+}
+
+function normalizePrivacySettings(row = {}) {
+  const privacyModes = new Set(["Enabled", "Friends Only", "Public"]);
+  const dmOptions = new Set(["Crewmates Only", "Followers", "Everyone"]);
+  const filters = new Set(["Strict", "Standard", "Relaxed"]);
+  const privacyMode = privacyModes.has(row.privacy_mode || row.privacyMode) ? (row.privacy_mode || row.privacyMode) : DEFAULT_PRIVACY_SETTINGS.privacyMode;
+  const dmPermissions = dmOptions.has(row.dm_permissions || row.dmPermissions) ? (row.dm_permissions || row.dmPermissions) : DEFAULT_PRIVACY_SETTINGS.dmPermissions;
+  const contentFilter = filters.has(row.content_filter || row.contentFilter) ? (row.content_filter || row.contentFilter) : DEFAULT_PRIVACY_SETTINGS.contentFilter;
+  return {
+    privacyMode,
+    dmPermissions,
+    contentFilter,
+    showOnlinePresence: row.show_online_presence === undefined && row.showOnlinePresence === undefined
+      ? DEFAULT_PRIVACY_SETTINGS.showOnlinePresence
+      : Boolean(row.show_online_presence ?? row.showOnlinePresence),
+    shareZoneActivity: row.share_zone_activity === undefined && row.shareZoneActivity === undefined
+      ? DEFAULT_PRIVACY_SETTINGS.shareZoneActivity
+      : Boolean(row.share_zone_activity ?? row.shareZoneActivity),
+    criticalAlerts: row.critical_alerts === undefined && row.criticalAlerts === undefined
+      ? DEFAULT_PRIVACY_SETTINGS.criticalAlerts
+      : Boolean(row.critical_alerts ?? row.criticalAlerts),
+  };
+}
+
+function getUserPrivacySettings(targetId) {
+  const row = get(
+    "SELECT privacy_mode, dm_permissions, content_filter, show_online_presence, share_zone_activity, critical_alerts FROM users WHERE id = ?",
+    [targetId]
+  );
+  return normalizePrivacySettings(row || {});
+}
+
+function canViewCrewProfile(viewerId, targetId) {
+  if (viewerId === targetId) return true;
+  if (areBlockedEitherWay(viewerId, targetId)) return false;
+  const settings = getUserPrivacySettings(targetId);
+  if (settings.privacyMode === "Public" || settings.privacyMode === "Enabled") return true;
+  if (settings.privacyMode === "Friends Only") return areFriends(viewerId, targetId);
+  return false;
+}
+
+function canDmUser(senderId, receiverId) {
+  if (senderId === receiverId) return false;
+  if (areBlockedEitherWay(senderId, receiverId)) return false;
+  const settings = getUserPrivacySettings(receiverId);
+  if (settings.dmPermissions === "Everyone") return true;
+  if (settings.dmPermissions === "Followers") {
+    return Boolean(get("SELECT 1 FROM follows WHERE follower_id = ? AND following_id = ?", [senderId, receiverId]));
+  }
+  return areFriends(senderId, receiverId);
+}
+
+function getVisibleCrewConnections(profileId, viewerId) {
+  const friends = all(
+    `SELECT users.id, users.display_name, users.avatar_color, mine.created_at
+     FROM follows mine
+     JOIN follows theirs
+       ON theirs.follower_id = mine.following_id
+      AND theirs.following_id = mine.follower_id
+     JOIN users ON users.id = mine.following_id
+     WHERE mine.follower_id = ?
+     ORDER BY mine.created_at DESC
+     LIMIT 24`,
+    [profileId]
+  ).map((row) => serializeCrewmateWithRelationship(row, viewerId, { connectedAt: row.created_at }));
+
+  const following = all(
+    `SELECT users.id, users.display_name, users.avatar_color, follows.created_at
+     FROM follows
+     JOIN users ON users.id = follows.following_id
+     WHERE follows.follower_id = ?
+     ORDER BY follows.created_at DESC
+     LIMIT 24`,
+    [profileId]
+  ).map((row) => serializeCrewmateWithRelationship(row, viewerId, { connectedAt: row.created_at }));
+
+  const followers = all(
+    `SELECT users.id, users.display_name, users.avatar_color, follows.created_at
+     FROM follows
+     JOIN users ON users.id = follows.follower_id
+     WHERE follows.following_id = ?
+     ORDER BY follows.created_at DESC
+     LIMIT 24`,
+    [profileId]
+  ).map((row) => serializeCrewmateWithRelationship(row, viewerId, { connectedAt: row.created_at }));
+
+  return { friends, following, followers };
+}
+
+function getCrewRelationship(viewerId, targetId) {
+  if (viewerId === targetId) return "self";
+  if (hasBlocked(viewerId, targetId)) return "blocked";
+  if (hasBlocked(targetId, viewerId)) return "blockedBy";
+  const viewerFollows = Boolean(get("SELECT 1 FROM follows WHERE follower_id = ? AND following_id = ?", [viewerId, targetId]));
+  const targetFollows = Boolean(get("SELECT 1 FROM follows WHERE follower_id = ? AND following_id = ?", [targetId, viewerId]));
+  if (viewerFollows && targetFollows) return "friend";
+  if (viewerFollows) return "following";
+  if (targetFollows) return "follower";
+  return "none";
 }
 
 function getThreadForUsers(userId, otherUserId) {
@@ -705,6 +1269,8 @@ function serializeDmThread(row, viewerId) {
       senderName: lastMessage.display_name || lastMessage.sender_id,
       body: lastMessage.body,
       createdAt: lastMessage.created_at,
+      readAt: lastMessage.read_at || null,
+      read: Boolean(lastMessage.read_at),
     } : null,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
@@ -720,6 +1286,8 @@ function serializeDmMessage(row, viewerId) {
     body: row.body,
     sentByMe: row.sender_id === viewerId,
     createdAt: row.created_at,
+    readAt: row.read_at || null,
+    read: Boolean(row.read_at),
   };
 }
 
@@ -751,6 +1319,62 @@ function clampPercent(value) {
   return Math.max(0, Math.min(100, Math.round(value)));
 }
 
+function toTitleLabel(value) {
+  return String(value || "Other")
+    .replace(/[-_]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim()
+    .replace(/\b\w/g, (char) => char.toUpperCase()) || "Other";
+}
+
+function isGeneratedRegressionUserId(userId) {
+  if (!HIDE_GENERATED_CREW) return false;
+  return /^(alpha|beta|owner|intruder|sse-owner|dm-sender|dm-receiver|dm-stranger|medbay|medbay-peer|system|share-sender|share-receiver)-\d{10,}-[a-f0-9]+(?:-\d+)?$/i.test(String(userId || ""));
+}
+
+function cleanCrewDisplayName(row) {
+  const id = String(row?.id || "");
+  const rawName = String(row?.display_name || row?.displayName || "").trim();
+  if (!rawName || rawName === id || isGeneratedRegressionUserId(rawName)) {
+    return "Crewmate";
+  }
+  return rawName;
+}
+
+function serializeCrewmateRow(row, extra = {}) {
+  return {
+    ...extra,
+    id: row.id,
+    displayName: cleanCrewDisplayName(row),
+    avatarColor: row.avatar_color,
+  };
+}
+
+function serializeCrewmateWithRelationship(row, viewerId, extra = {}) {
+  return serializeCrewmateRow(row, {
+    ...extra,
+    relationship: getCrewRelationship(viewerId, row.id),
+  });
+}
+
+function visibleCrewFilterSql(alias = "users") {
+  return HIDE_GENERATED_CREW
+    ? `AND ${alias}.id NOT GLOB 'alpha-[0-9]*'
+       AND ${alias}.id NOT GLOB 'beta-[0-9]*'
+       AND ${alias}.id NOT GLOB 'owner-[0-9]*'
+       AND ${alias}.id NOT GLOB 'intruder-[0-9]*'
+       AND ${alias}.id NOT GLOB 'sse-owner-[0-9]*'
+       AND ${alias}.id NOT GLOB 'dm-sender-[0-9]*'
+       AND ${alias}.id NOT GLOB 'dm-receiver-[0-9]*'
+       AND ${alias}.id NOT GLOB 'dm-stranger-[0-9]*'
+       AND ${alias}.id NOT GLOB 'medbay-[0-9]*'
+       AND ${alias}.id NOT GLOB 'medbay-peer-[0-9]*'
+       AND ${alias}.id NOT GLOB 'system-[0-9]*'
+       AND ${alias}.id NOT GLOB 'share-sender-[0-9]*'
+       AND ${alias}.id NOT GLOB 'share-receiver-[0-9]*'`
+    : "";
+}
+
 function getMedbayAnalytics(userId, range) {
   const safeRange = ["day", "week", "month"].includes(range) ? range : "day";
   const since = startDateForRange(safeRange);
@@ -770,19 +1394,22 @@ function getMedbayAnalytics(userId, range) {
   const dmSent = get("SELECT COUNT(*) AS count FROM dm_messages WHERE sender_id = ? AND created_at >= ?", [userId, since]).count;
   const friendCount = get(
     `SELECT COUNT(*) AS count
-     FROM friendships
-     WHERE user_id1 = ? OR user_id2 = ?`,
-    [userId, userId]
+     FROM follows mine
+     JOIN follows theirs
+       ON theirs.follower_id = mine.following_id
+      AND theirs.following_id = mine.follower_id
+     WHERE mine.follower_id = ?`,
+    [userId]
   ).count;
   const objectives = all("SELECT completed FROM daily_objectives WHERE user_id = ? AND date >= ?", [userId, since.slice(0, 10)]);
   const completedObjectives = objectives.filter((objective) => objective.completed).length;
   const completionRate = objectives.length ? completedObjectives / objectives.length : 0;
 
   const zoneRows = all(
-    `SELECT room_id, COUNT(*) AS count
-     FROM posts
-     WHERE user_id = ? AND created_at >= ?
-     GROUP BY room_id`,
+    `SELECT room_name, room_id, COUNT(*) AS count
+     FROM room_visits
+     WHERE user_id = ? AND entered_at >= ?
+     GROUP BY room_name, room_id`,
     [userId, since]
   );
   const zoneCounts = new Map([
@@ -793,7 +1420,7 @@ function getMedbayAnalytics(userId, range) {
     ["Weapons", votesCast],
   ]);
   for (const row of zoneRows) {
-    const label = String(row.room_id || "Other").replace(/^\w/, (char) => char.toUpperCase());
+    const label = row.room_name || toTitleLabel(row.room_id);
     zoneCounts.set(label, (zoneCounts.get(label) || 0) + row.count);
   }
   const zoneTotal = [...zoneCounts.values()].reduce((sum, value) => sum + value, 0);
@@ -855,48 +1482,97 @@ function getReactorStatus() {
   const today = getTodayDateString();
   const activeSince = new Date(Date.now() - ACTIVE_SESSION_WINDOW_MS).toISOString();
   const users = get("SELECT COUNT(*) AS count FROM users").count;
-  const activeSessions = get("SELECT COUNT(*) AS count FROM sessions WHERE end_time IS NULL AND start_time >= ?", [activeSince]).count;
-  const sessionsToday = get("SELECT COUNT(*) AS count FROM sessions WHERE start_time >= ?", [`${today}T00:00:00.000Z`]).count;
+  const activeSessions = get(
+    `SELECT COUNT(*) AS count
+     FROM sessions
+     JOIN users ON users.id = sessions.user_id
+     WHERE sessions.end_time IS NULL
+       AND sessions.start_time >= ?
+       AND COALESCE(users.show_online_presence, 1) = 1`,
+    [activeSince]
+  ).count;
+  const sessionsToday = get(
+    `SELECT COUNT(*) AS count
+     FROM sessions
+     JOIN users ON users.id = sessions.user_id
+     WHERE sessions.start_time >= ?
+       AND COALESCE(users.show_online_presence, 1) = 1`,
+    [`${today}T00:00:00.000Z`]
+  ).count;
   const posts = get("SELECT COUNT(*) AS count FROM posts").count;
   const comments = get("SELECT COUNT(*) AS count FROM comments").count;
   const dmMessages = get("SELECT COUNT(*) AS count FROM dm_messages").count;
+  const roomVisits = get(
+    `SELECT COUNT(*) AS count
+     FROM room_visits
+     JOIN users ON users.id = room_visits.user_id
+     WHERE COALESCE(users.share_zone_activity, 1) = 1`
+  ).count;
   const reportsOpen = get("SELECT COUNT(*) AS count FROM security_reports WHERE status = 'open'").count;
   const objectivesToday = get("SELECT COUNT(*) AS count FROM daily_objectives WHERE date = ?", [today]).count;
   const completedToday = get("SELECT COUNT(*) AS count FROM daily_objectives WHERE date = ? AND completed = 1", [today]).count;
-  const totalActivity = posts + comments + dmMessages + sessionsToday;
+  const totalActivity = posts + comments + dmMessages + roomVisits;
+  const votes = get("SELECT COUNT(*) AS count FROM post_votes").count;
+  const saves = get("SELECT COUNT(*) AS count FROM saved_posts").count;
+  const follows = get("SELECT COUNT(*) AS count FROM follows").count;
+  const friendships = get(
+    `SELECT COUNT(*) AS count
+     FROM follows mine
+     JOIN follows theirs
+       ON theirs.follower_id = mine.following_id
+      AND theirs.following_id = mine.follower_id
+     WHERE mine.follower_id < mine.following_id`
+  ).count;
+  const shares = get("SELECT COALESCE(SUM(shares_count), 0) AS count FROM posts").count;
+  const activeRate = users ? clampPercent((activeSessions / users) * 100) : 0;
+  const objectiveRate = objectivesToday ? clampPercent((completedToday / objectivesToday) * 100) : 0;
+  const postsPerCrew = users ? (posts / users).toFixed(1) : "0.0";
 
-  const roomRows = all(
-    `SELECT room_id, COUNT(*) AS count
+  const topicRows = all(
+    `SELECT tag, COUNT(*) AS count, COALESCE(SUM(upvotes_count), 0) AS upvotes, COALESCE(SUM(shares_count), 0) AS shares
      FROM posts
-     GROUP BY room_id
-     ORDER BY count DESC
-     LIMIT 8`
+     GROUP BY tag
+     ORDER BY count DESC, upvotes DESC
+     LIMIT 6`
   );
-  const zones = roomRows.length ? roomRows.map((row, index) => ({
-    name: String(row.room_id || "Other").replace(/^\w/, (char) => char.toUpperCase()),
-    visits: row.count,
+  const topTopics = topicRows.length ? topicRows.map((row, index) => ({
+    label: normalizePostCategory(row.tag),
+    count: row.count,
+    meta: `${row.upvotes} likes | ${row.shares} shares`,
     color: ["#00d4ff", "#0f766e", "#ef3340", "#8338ec", "#f6c243", "#10b981", "#6c757d", "#efa9fa"][index] || "#6c757d",
-  })) : [{ name: "No post zones yet", visits: 0, color: "#6c757d" }];
+  })) : [{ label: "No topics yet", count: 0, meta: "Create a post to start tracking topics.", color: "#6c757d" }];
+
+  const activityMix = [
+    { label: "Posts", count: posts, color: "#00d4ff" },
+    { label: "Comments", count: comments, color: "#0f766e" },
+    { label: "DMs", count: dmMessages, color: "#8338ec" },
+    { label: "Votes", count: votes, color: "#ef3340" },
+    { label: "Saves", count: saves, color: "#f6c243" },
+    { label: "Shares", count: shares, color: "#10b981" },
+  ];
+
+  const networkStats = [
+    { label: "Follow Links", value: follows, detail: `${friendships} mutual connection${friendships === 1 ? "" : "s"}` },
+    { label: "Posts per Crew", value: postsPerCrew, detail: `${posts} total post${posts === 1 ? "" : "s"}` },
+    { label: "Active Rate", value: `${activeRate}%`, detail: `${activeSessions}/${users} visible active` },
+    { label: "Objective Rate", value: `${objectiveRate}%`, detail: `${completedToday}/${objectivesToday} completed today` },
+  ];
 
   return {
-    status: reportsOpen > 0 ? "Security Review Needed" : "Backend Data Live",
+    status: reportsOpen > 0 ? "Security Review Needed" : "Community Stats Live",
     visitorsToday: sessionsToday,
     activeSessions,
     totalUsers: users,
     openReports: reportsOpen,
-    storageCounts: [
-      { label: "Posts", count: posts, color: "#00d4ff" },
-      { label: "Comments", count: comments, color: "#0f766e" },
-      { label: "DMs", count: dmMessages, color: "#8338ec" },
-      { label: "Reports", count: reportsOpen, color: reportsOpen ? "#f6c243" : "#6c757d" },
+    headlineStats: [
+      { label: "Registered Crew", value: users, detail: `${activeSessions} visible active now` },
+      { label: "Total Activity", value: totalActivity, detail: "Posts, comments, DMs, and visible visits" },
+      { label: "Engagement", value: votes + saves + shares, detail: `${votes} votes | ${saves} saves | ${shares} shares` },
+      { label: "Open Reports", value: reportsOpen, detail: reportsOpen ? "Security review needed" : "No open tickets" },
     ],
-    zones,
-    events: [
-      { type: "ok", text: `${users} registered crewmate${users === 1 ? "" : "s"} in SQLite.` },
-      { type: "ok", text: `${posts} post${posts === 1 ? "" : "s"}, ${comments} comment${comments === 1 ? "" : "s"}, ${dmMessages} DM${dmMessages === 1 ? "" : "s"} stored.` },
-      { type: reportsOpen ? "warn" : "ok", text: `${reportsOpen} open security ticket${reportsOpen === 1 ? "" : "s"} stored.` },
-      { type: objectivesToday ? "ok" : "warn", text: `${completedToday}/${objectivesToday} daily objectives completed today.` },
-    ],
+    activityMix,
+    topTopics,
+    networkStats,
     updatedAt: now(),
   };
 }
@@ -1119,7 +1795,7 @@ async function route(req, res) {
   ensureRequestUser(req, userId);
 
   if (req.method === "GET" && pathname === "/api/users/me") {
-    const user = get("SELECT id, email, email_encrypted, display_name, avatar_color, created_at FROM users WHERE id = ?", [userId]);
+    const user = get("SELECT id, email, email_encrypted, display_name, avatar_color, created_at, privacy_mode, dm_permissions, content_filter, show_online_presence, share_zone_activity, critical_alerts FROM users WHERE id = ?", [userId]);
     if (!user) return json(res, 404, { error: "User not found." });
     return json(res, 200, {
       user: {
@@ -1128,13 +1804,76 @@ async function route(req, res) {
         displayName: user.display_name,
         avatarColor: user.avatar_color,
         createdAt: user.created_at,
+        privacySettings: normalizePrivacySettings(user),
       },
     });
+  }
+
+  if (req.method === "GET" && pathname === "/api/users/me/privacy") {
+    const user = get("SELECT privacy_mode, dm_permissions, content_filter, show_online_presence, share_zone_activity, critical_alerts FROM users WHERE id = ?", [userId]);
+    if (!user) return json(res, 404, { error: "User not found." });
+    return json(res, 200, { privacySettings: normalizePrivacySettings(user) });
+  }
+
+  if (req.method === "PATCH" && pathname === "/api/users/me/privacy") {
+    const body = await readBody(req);
+    const current = get("SELECT privacy_mode, dm_permissions, content_filter, show_online_presence, share_zone_activity, critical_alerts FROM users WHERE id = ?", [userId]);
+    if (!current) return json(res, 404, { error: "User not found." });
+    const currentSettings = normalizePrivacySettings(current);
+    const nextSettings = normalizePrivacySettings({
+      privacyMode: body.privacyMode ?? currentSettings.privacyMode,
+      dmPermissions: body.dmPermissions ?? currentSettings.dmPermissions,
+      contentFilter: body.contentFilter ?? currentSettings.contentFilter,
+      showOnlinePresence: body.showOnlinePresence ?? currentSettings.showOnlinePresence,
+      shareZoneActivity: body.shareZoneActivity ?? currentSettings.shareZoneActivity,
+      criticalAlerts: body.criticalAlerts ?? currentSettings.criticalAlerts,
+    });
+    run(
+      `UPDATE users
+       SET privacy_mode = ?,
+           dm_permissions = ?,
+           content_filter = ?,
+           show_online_presence = ?,
+           share_zone_activity = ?,
+           critical_alerts = ?
+       WHERE id = ?`,
+      [
+        nextSettings.privacyMode,
+        nextSettings.dmPermissions,
+        nextSettings.contentFilter,
+        nextSettings.showOnlinePresence ? 1 : 0,
+        nextSettings.shareZoneActivity ? 1 : 0,
+        nextSettings.criticalAlerts ? 1 : 0,
+        userId,
+      ]
+    );
+    broadcastSSE("privacy_settings_changed", { userId, privacySettings: nextSettings });
+    return json(res, 200, { privacySettings: nextSettings });
   }
 
   if (req.method === "GET" && pathname === "/api/users/me/analytics") {
     const range = url.searchParams.get("range") || "day";
     return json(res, 200, { analytics: getMedbayAnalytics(userId, range) });
+  }
+
+  if (req.method === "POST" && pathname === "/api/rooms/visit") {
+    const body = await readBody(req);
+    const roomId = String(body.roomId || "").trim().toLowerCase();
+    const roomName = String(body.roomName || toTitleLabel(roomId)).trim();
+    if (!roomId || roomId.length > 64) return json(res, 400, { error: "Room ID is required." });
+    if (!roomName || roomName.length > 80) return json(res, 400, { error: "Room name is required." });
+
+    const id = randomUUID();
+    const enteredAt = now();
+    run(
+      "INSERT INTO room_visits (id, user_id, room_id, room_name, entered_at) VALUES (?, ?, ?, ?, ?)",
+      [id, userId, roomId, roomName, enteredAt]
+    );
+    const visit = { id, userId, roomId, roomName, enteredAt };
+    if (getUserPrivacySettings(userId).shareZoneActivity) {
+      broadcastSSE("room_visit_created", { visit });
+    }
+    return json(res, 201, { visit });
   }
 
   if (req.method === "GET" && pathname === "/api/system/reactor") {
@@ -1143,6 +1882,19 @@ async function route(req, res) {
 
   if (req.method === "GET" && pathname === "/api/security/reports") {
     return json(res, 200, getSecurityOverview());
+  }
+
+  if (req.method === "POST" && pathname === "/api/security/report-email-test") {
+    const email = await emailDevelopersAboutReport({
+      id: "test-email",
+      reporterId: userId,
+      type: "test",
+      target: "Developer email setup",
+      detail: "This is a test email from the DevSpace Security report notification setup.",
+      status: "open",
+      createdAt: now(),
+    });
+    return json(res, email.sent ? 200 : 500, { email });
   }
 
   if (req.method === "POST" && pathname === "/api/security/reports") {
@@ -1160,14 +1912,16 @@ async function route(req, res) {
       "INSERT INTO security_reports (id, reporter_id, type, target, detail, status, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
       [id, userId, type, target, detail, "open", timestamp, timestamp]
     );
-    const report = get("SELECT * FROM security_reports WHERE id = ?", [id]);
-    broadcastSSE("security_report_created", { report: serializeSecurityReport(report) });
-    return json(res, 201, { report: serializeSecurityReport(report), overview: getSecurityOverview() });
+    const report = serializeSecurityReport(get("SELECT * FROM security_reports WHERE id = ?", [id]));
+    const email = await emailDevelopersAboutReport(report);
+    broadcastSSE("security_report_created", { report });
+    return json(res, 201, { report, overview: getSecurityOverview(), email });
   }
 
   if (req.method === "GET" && pathname === "/api/posts") {
     const feed = String(url.searchParams.get("feed") || "new");
-    const tag = String(url.searchParams.get("tag") || "").trim();
+    const rawTag = String(url.searchParams.get("tag") || "").trim();
+    const tag = rawTag ? normalizePostCategory(rawTag) : "";
     const unseenOnly = url.searchParams.get("unseen") === "1";
     const limit = Math.min(Math.max(Number(url.searchParams.get("limit") || 50), 1), 100);
     const whereParts = [];
@@ -1192,12 +1946,26 @@ async function route(req, res) {
     return json(res, 200, { posts: selectPostsForUser({ userId, where, params, orderBy, limit }) });
   }
 
+  if (req.method === "POST" && pathname === "/api/post-images") {
+    try {
+      const buffer = await readRawBody(req, POST_IMAGE_MAX_BYTES + 512_000);
+      const file = parseMultipartFile(buffer, req.headers["content-type"], "image");
+      const imageUrl = await uploadPostImageToCloudinary(file);
+      return json(res, 201, { imageUrl });
+    } catch (error) {
+      const message = error.message || "Image upload failed.";
+      const status = /not configured/i.test(message) ? 503 : /too large|5 MB|jpeg|png|webp|gif|multipart|image file/i.test(message) ? 400 : 502;
+      return json(res, status, { error: message });
+    }
+  }
+
   if (req.method === "POST" && pathname === "/api/posts") {
     const body = await readBody(req);
     const title = String(body.title || "").trim();
     const postBody = String(body.body || body.content || "").trim();
-    const tag = String(body.tag || "Space").trim() || "Space";
+    const tag = normalizePostCategory(body.tag);
     const roomId = String(body.roomId || "cafeteria").trim();
+    let imageUrl = "";
 
     if (title.length < 1 || title.length > 120) {
       return json(res, 400, { error: "Post title must be 1-120 characters." });
@@ -1205,11 +1973,16 @@ async function route(req, res) {
     if (postBody.length < 1 || postBody.length > 2000) {
       return json(res, 400, { error: "Post body must be 1-2000 characters." });
     }
+    try {
+      imageUrl = normalizeImageUrl(body.imageUrl);
+    } catch (error) {
+      return json(res, 400, { error: error.message });
+    }
 
     const id = randomUUID();
     run(
-      "INSERT INTO posts (id, user_id, content, title, body, tag, room_id, likes_count, upvotes_count, downvotes_count, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
-      [id, userId, postBody, title, postBody, tag, roomId, 0, 0, 0, now()]
+      "INSERT INTO posts (id, user_id, content, title, body, tag, image_url, room_id, likes_count, upvotes_count, downvotes_count, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+      [id, userId, postBody, title, postBody, tag, imageUrl, roomId, 0, 0, 0, now()]
     );
 
     const posts = selectPostsForUser({ userId, where: "WHERE posts.id = ?", params: [id], limit: 1 });
@@ -1345,11 +2118,21 @@ async function route(req, res) {
   const userProfileMatch = pathname.match(/^\/api\/users\/([^/]+)\/profile$/);
   if (req.method === "GET" && userProfileMatch) {
     const profileId = userProfileMatch[1];
-    const user = get("SELECT id, display_name, avatar_color, bio, decorations, favourite_topics, created_at FROM users WHERE id = ?", [profileId]);
+    const user = get("SELECT id, display_name, avatar_color, bio, decorations, favourite_topics, created_at, privacy_mode, show_online_presence, share_zone_activity FROM users WHERE id = ?", [profileId]);
     if (!user) return json(res, 404, { error: "User not found." });
+    if (!canViewCrewProfile(userId, profileId)) return json(res, 403, { error: "This profile is private." });
     
     const followers = get("SELECT COUNT(*) as count FROM follows WHERE following_id = ?", [profileId]).count;
     const following = get("SELECT COUNT(*) as count FROM follows WHERE follower_id = ?", [profileId]).count;
+    const settings = normalizePrivacySettings(user);
+    const connections = getVisibleCrewConnections(profileId, userId);
+    const posts = selectPostsForUser({
+      userId,
+      where: "WHERE posts.user_id = ?",
+      params: [profileId],
+      orderBy: "posts.created_at DESC",
+      limit: 12,
+    });
     
     return json(res, 200, {
       profile: {
@@ -1361,7 +2144,15 @@ async function route(req, res) {
         favouriteTopics: JSON.parse(user.favourite_topics || "[]"),
         followersCount: followers,
         followingCount: following,
-        createdAt: user.created_at
+        createdAt: user.created_at,
+        onlinePresenceVisible: settings.showOnlinePresence,
+        zoneActivityVisible: settings.shareZoneActivity,
+        privacyMode: settings.privacyMode,
+        relationship: getCrewRelationship(userId, profileId),
+        posts,
+        friends: connections.friends,
+        following: connections.following,
+        followers: connections.followers,
       }
     });
   }
@@ -1384,75 +2175,137 @@ async function route(req, res) {
   }
 
   if (req.method === "GET" && pathname === "/api/users/me/crewmates") {
+    const hiddenFilter = visibleCrewFilterSql("users");
     const following = all(
       `SELECT users.id, users.display_name, users.avatar_color, follows.created_at
        FROM follows
        JOIN users ON users.id = follows.following_id
        WHERE follows.follower_id = ?
+         ${hiddenFilter}
+         AND users.id NOT IN (SELECT blocked_id FROM blocked_users WHERE blocker_id = ?)
+         AND users.id NOT IN (SELECT blocker_id FROM blocked_users WHERE blocked_id = ?)
        ORDER BY follows.created_at DESC`,
-      [userId]
-    ).map((row) => ({
-      id: row.id,
-      displayName: row.display_name,
-      avatarColor: row.avatar_color,
-      connectedAt: row.created_at,
-    }));
+      [userId, userId, userId]
+    ).filter((row) => canViewCrewProfile(userId, row.id)).map((row) => serializeCrewmateWithRelationship(row, userId, { connectedAt: row.created_at }));
 
     const followers = all(
       `SELECT users.id, users.display_name, users.avatar_color, follows.created_at
        FROM follows
        JOIN users ON users.id = follows.follower_id
        WHERE follows.following_id = ?
+         ${hiddenFilter}
+         AND users.id NOT IN (SELECT blocked_id FROM blocked_users WHERE blocker_id = ?)
+         AND users.id NOT IN (SELECT blocker_id FROM blocked_users WHERE blocked_id = ?)
        ORDER BY follows.created_at DESC`,
-      [userId]
-    ).map((row) => ({
-      id: row.id,
-      displayName: row.display_name,
-      avatarColor: row.avatar_color,
-      connectedAt: row.created_at,
-    }));
+      [userId, userId, userId]
+    ).filter((row) => canViewCrewProfile(userId, row.id)).map((row) => serializeCrewmateWithRelationship(row, userId, { connectedAt: row.created_at }));
+
+    const friends = following.filter((row) => row.relationship === "friend");
 
     const suggestions = all(
       `SELECT users.id, users.display_name, users.avatar_color
        FROM users
        WHERE users.id <> ?
+         ${hiddenFilter}
          AND users.id NOT IN (SELECT following_id FROM follows WHERE follower_id = ?)
+         AND users.id NOT IN (SELECT blocked_id FROM blocked_users WHERE blocker_id = ?)
+         AND users.id NOT IN (SELECT blocker_id FROM blocked_users WHERE blocked_id = ?)
        ORDER BY users.created_at DESC
        LIMIT 8`,
-      [userId, userId]
-    ).map((row) => ({
-      id: row.id,
-      displayName: row.display_name,
-      avatarColor: row.avatar_color,
-    }));
+      [userId, userId, userId, userId]
+    ).filter((row) => canViewCrewProfile(userId, row.id)).map((row) => serializeCrewmateWithRelationship(row, userId));
 
     return json(res, 200, {
+      friends,
       following,
       followers,
       suggestions,
       counts: {
+        friends: friends.length,
         following: following.length,
         followers: followers.length,
       },
     });
   }
 
+  if (req.method === "GET" && pathname === "/api/users/search") {
+    const query = String(url.searchParams.get("q") || "").trim();
+    if (query.length < 1) return json(res, 200, { users: [] });
+    const like = `%${query}%`;
+    const hiddenFilter = visibleCrewFilterSql("users");
+    const users = all(
+      `SELECT users.id, users.display_name, users.avatar_color
+       FROM users
+       WHERE users.id <> ?
+         ${hiddenFilter}
+         AND users.id NOT IN (SELECT blocker_id FROM blocked_users WHERE blocked_id = ?)
+         AND (users.display_name LIKE ? OR users.id LIKE ?)
+       ORDER BY users.display_name COLLATE NOCASE ASC, users.created_at DESC
+       LIMIT 20`,
+      [userId, userId, like, like]
+    ).filter((row) => !isGeneratedRegressionUserId(row.id) && canViewCrewProfile(userId, row.id)).map((row) => serializeCrewmateWithRelationship(row, userId));
+    return json(res, 200, { users });
+  }
+
+  if (req.method === "GET" && pathname === "/api/users/me/blocked-users") {
+    const blockedUsers = all(
+      `SELECT users.id, users.display_name, users.avatar_color, blocked_users.created_at
+       FROM blocked_users
+       JOIN users ON users.id = blocked_users.blocked_id
+       WHERE blocked_users.blocker_id = ?
+       ORDER BY blocked_users.created_at DESC`,
+      [userId]
+    ).map((row) => serializeCrewmateRow(row, { blockedAt: row.created_at, relationship: "blocked" }));
+    return json(res, 200, { blockedUsers });
+  }
+
+  if (req.method === "POST" && pathname === "/api/users/me/blocked-users") {
+    const body = await readBody(req);
+    const blockedUserId = String(body.blockedUserId || "").trim();
+    if (!blockedUserId) return json(res, 400, { error: "Blocked user ID is required." });
+    if (blockedUserId === userId) return json(res, 400, { error: "Cannot block yourself." });
+    const target = get("SELECT id FROM users WHERE id = ?", [blockedUserId]);
+    if (!target) return json(res, 404, { error: "User not found." });
+
+    const timestamp = now();
+    run("INSERT OR IGNORE INTO blocked_users (blocker_id, blocked_id, created_at) VALUES (?, ?, ?)", [userId, blockedUserId, timestamp]);
+    run("DELETE FROM follows WHERE (follower_id = ? AND following_id = ?) OR (follower_id = ? AND following_id = ?)", [userId, blockedUserId, blockedUserId, userId]);
+    const [u1, u2] = orderedUserPair(userId, blockedUserId);
+    run("DELETE FROM friendships WHERE user_id1 = ? AND user_id2 = ?", [u1, u2]);
+    run("DELETE FROM friend_requests WHERE (sender_id = ? AND receiver_id = ?) OR (sender_id = ? AND receiver_id = ?)", [userId, blockedUserId, blockedUserId, userId]);
+    broadcastSSE("friend_list_changed", { userId, otherUserId: blockedUserId });
+    return json(res, 200, { blocked: true });
+  }
+
+  const unblockMatch = pathname.match(/^\/api\/users\/me\/blocked-users\/([^/]+)$/);
+  if (req.method === "DELETE" && unblockMatch) {
+    const blockedUserId = decodeURIComponent(unblockMatch[1]);
+    run("DELETE FROM blocked_users WHERE blocker_id = ? AND blocked_id = ?", [userId, blockedUserId]);
+    broadcastSSE("friend_list_changed", { userId, otherUserId: blockedUserId });
+    return json(res, 200, { unblocked: true });
+  }
+
   const followMatch = pathname.match(/^\/api\/users\/([^/]+)\/follow$/);
   if (req.method === "POST" && followMatch) {
-    const followingId = followMatch[1];
+    const followingId = decodeURIComponent(followMatch[1]);
     if (followingId === userId) return json(res, 400, { error: "Cannot follow yourself." });
     const target = get("SELECT id FROM users WHERE id = ?", [followingId]);
     if (!target) return json(res, 404, { error: "User not found." });
+    if (areBlockedEitherWay(userId, followingId)) return json(res, 403, { error: "Cannot follow a blocked crewmate." });
+    if (!canViewCrewProfile(userId, followingId)) return json(res, 403, { error: "This profile is private." });
 
     run("INSERT OR IGNORE INTO follows (follower_id, following_id, created_at) VALUES (?, ?, ?)", [userId, followingId, now()]);
-    return json(res, 200, { followed: true });
+    incrementObjective(userId, "request");
+    broadcastSSE("friend_list_changed", { followerId: userId, followingId });
+    return json(res, 200, { followed: true, relationship: getCrewRelationship(userId, followingId) });
   }
 
   const unfollowMatch = pathname.match(/^\/api\/users\/([^/]+)\/unfollow$/);
   if (req.method === "POST" && unfollowMatch) {
-    const followingId = unfollowMatch[1];
+    const followingId = decodeURIComponent(unfollowMatch[1]);
     run("DELETE FROM follows WHERE follower_id = ? AND following_id = ?", [userId, followingId]);
-    return json(res, 200, { unfollowed: true });
+    broadcastSSE("friend_list_changed", { followerId: userId, followingId });
+    return json(res, 200, { unfollowed: true, relationship: getCrewRelationship(userId, followingId) });
   }
 
   // --- Post Social Features ---
@@ -1573,7 +2426,7 @@ async function route(req, res) {
        WHERE user_id1 = ? OR user_id2 = ?
        ORDER BY updated_at DESC`,
       [userId, userId]
-    );
+    ).filter((row) => !areBlockedEitherWay(userId, row.user_id1 === userId ? row.user_id2 : row.user_id1));
     return json(res, 200, { threads: rows.map((row) => serializeDmThread(row, userId)) });
   }
 
@@ -1585,7 +2438,8 @@ async function route(req, res) {
 
     const receiver = get("SELECT id FROM users WHERE id = ?", [receiverId]);
     if (!receiver) return json(res, 404, { error: "User not found." });
-    if (!areFriends(userId, receiverId)) return json(res, 403, { error: "You can only DM friends." });
+    if (areBlockedEitherWay(userId, receiverId)) return json(res, 403, { error: "This DM is blocked." });
+    if (!canDmUser(userId, receiverId)) return json(res, 403, { error: "This crewmate's DM permissions prevent that message." });
 
     const thread = createThreadForUsers(userId, receiverId);
     return json(res, 200, { thread: serializeDmThread(thread, userId) });
@@ -1596,6 +2450,28 @@ async function route(req, res) {
     const threadId = dmMessagesMatch[1];
     const thread = getDmThreadForUser(threadId, userId);
     if (!thread) return json(res, 404, { error: "DM thread not found." });
+    const otherUserId = thread.user_id1 === userId ? thread.user_id2 : thread.user_id1;
+    if (areBlockedEitherWay(userId, otherUserId)) return json(res, 403, { error: "This DM is blocked." });
+
+    const readAt = now();
+    const unreadFromOther = all(
+      "SELECT id, sender_id FROM dm_messages WHERE thread_id = ? AND sender_id <> ? AND read_at IS NULL",
+      [threadId, userId]
+    );
+    if (unreadFromOther.length > 0) {
+      run(
+        "UPDATE dm_messages SET read_at = ? WHERE thread_id = ? AND sender_id <> ? AND read_at IS NULL",
+        [readAt, threadId, userId]
+      );
+      const senderIds = [...new Set(unreadFromOther.map((message) => message.sender_id))];
+      broadcastSSE("dm_messages_read", {
+        threadId,
+        readerId: userId,
+        senderIds,
+        messageIds: unreadFromOther.map((message) => message.id),
+        readAt,
+      });
+    }
 
     const messages = all(
       `SELECT dm_messages.*, users.display_name
@@ -1614,6 +2490,9 @@ async function route(req, res) {
     const threadId = dmMessagesMatch[1];
     const thread = getDmThreadForUser(threadId, userId);
     if (!thread) return json(res, 404, { error: "DM thread not found." });
+    const otherUserId = thread.user_id1 === userId ? thread.user_id2 : thread.user_id1;
+    if (areBlockedEitherWay(userId, otherUserId)) return json(res, 403, { error: "This DM is blocked." });
+    if (!canDmUser(userId, otherUserId)) return json(res, 403, { error: "This crewmate's DM permissions prevent that message." });
 
     const body = await readBody(req);
     const content = String(body.body || body.content || "").trim();
@@ -1641,73 +2520,83 @@ async function route(req, res) {
   // --- Friends System Endpoints ---
 
   if (req.method === "GET" && pathname === "/api/friends/list") {
+    const hiddenFilter = visibleCrewFilterSql("users");
     const friends = all(
-      `SELECT id, display_name, avatar_color
-       FROM users
-       WHERE id IN (
-         SELECT user_id2 FROM friendships WHERE user_id1 = ?
-         UNION
-         SELECT user_id1 FROM friendships WHERE user_id2 = ?
-       )`,
-      [userId, userId]
-    ).map(row => ({ id: row.id, displayName: row.display_name, avatarColor: row.avatar_color }));
-
-    const incoming = all(
-      `SELECT r.id AS requestId, u.id, u.display_name, u.avatar_color, r.created_at
-       FROM friend_requests r
-       JOIN users u ON u.id = r.sender_id
-       WHERE r.receiver_id = ? AND r.status = 'pending'
-       ORDER BY r.created_at DESC`,
-      [userId]
-    ).map(row => ({ requestId: row.requestId, id: row.id, displayName: row.display_name, avatarColor: row.avatar_color, createdAt: row.created_at }));
-
-    const outgoing = all(
-      `SELECT r.id AS requestId, u.id, u.display_name, u.avatar_color, r.created_at
-       FROM friend_requests r
-       JOIN users u ON u.id = r.receiver_id
-       WHERE r.sender_id = ? AND r.status = 'pending'
-       ORDER BY r.created_at DESC`,
-      [userId]
-    ).map(row => ({ requestId: row.requestId, id: row.id, displayName: row.display_name, avatarColor: row.avatar_color, createdAt: row.created_at }));
+      `SELECT users.id, users.display_name, users.avatar_color, mine.created_at
+       FROM follows mine
+       JOIN follows theirs
+         ON theirs.follower_id = mine.following_id
+        AND theirs.following_id = mine.follower_id
+       JOIN users ON users.id = mine.following_id
+       WHERE mine.follower_id = ?
+         ${hiddenFilter}
+         AND users.id NOT IN (SELECT blocked_id FROM blocked_users WHERE blocker_id = ?)
+         AND users.id NOT IN (SELECT blocker_id FROM blocked_users WHERE blocked_id = ?)
+       ORDER BY mine.created_at DESC`,
+      [userId, userId, userId]
+    ).filter((row) => canViewCrewProfile(userId, row.id)).map(row => serializeCrewmateWithRelationship(row, userId, { connectedAt: row.created_at }));
 
     const following = all(
-      `SELECT users.id, users.display_name, users.avatar_color
+      `SELECT users.id, users.display_name, users.avatar_color, follows.created_at
        FROM follows
        JOIN users ON users.id = follows.following_id
        WHERE follows.follower_id = ?
-       ORDER BY follows.created_at DESC`,
-      [userId]
-    ).map(row => ({ id: row.id, displayName: row.display_name, avatarColor: row.avatar_color }));
+         ${hiddenFilter}
+         AND users.id NOT IN (SELECT blocked_id FROM blocked_users WHERE blocker_id = ?)
+         AND users.id NOT IN (SELECT blocker_id FROM blocked_users WHERE blocked_id = ?)
+      ORDER BY follows.created_at DESC`,
+      [userId, userId, userId]
+    ).filter((row) => canViewCrewProfile(userId, row.id)).map(row => serializeCrewmateWithRelationship(row, userId, { connectedAt: row.created_at }));
 
     const followers = all(
-      `SELECT users.id, users.display_name, users.avatar_color
+      `SELECT users.id, users.display_name, users.avatar_color, follows.created_at
        FROM follows
        JOIN users ON users.id = follows.follower_id
        WHERE follows.following_id = ?
-       ORDER BY follows.created_at DESC`,
+         ${hiddenFilter}
+         AND users.id NOT IN (SELECT blocked_id FROM blocked_users WHERE blocker_id = ?)
+         AND users.id NOT IN (SELECT blocker_id FROM blocked_users WHERE blocked_id = ?)
+      ORDER BY follows.created_at DESC`,
+      [userId, userId, userId]
+    ).filter((row) => canViewCrewProfile(userId, row.id)).map(row => serializeCrewmateWithRelationship(row, userId, { connectedAt: row.created_at }));
+
+    const blockedUsers = all(
+      `SELECT users.id, users.display_name, users.avatar_color, blocked_users.created_at
+       FROM blocked_users
+       JOIN users ON users.id = blocked_users.blocked_id
+       WHERE blocked_users.blocker_id = ?
+       ORDER BY blocked_users.created_at DESC`,
       [userId]
-    ).map(row => ({ id: row.id, displayName: row.display_name, avatarColor: row.avatar_color }));
+    ).map(row => serializeCrewmateRow(row, { blockedAt: row.created_at, relationship: "blocked" }));
 
     const suggestions = all(
-      `SELECT id, display_name, avatar_color
+      `SELECT users.id, users.display_name, users.avatar_color
        FROM users
-       WHERE id <> ?
-         AND id NOT IN (
-           SELECT user_id2 FROM friendships WHERE user_id1 = ?
-           UNION
-           SELECT user_id1 FROM friendships WHERE user_id2 = ?
-         )
-         AND id NOT IN (
-           SELECT receiver_id FROM friend_requests WHERE sender_id = ? AND status = 'pending'
-           UNION
-           SELECT sender_id FROM friend_requests WHERE receiver_id = ? AND status = 'pending'
-         )
-       ORDER BY created_at DESC
+       WHERE users.id <> ?
+         ${hiddenFilter}
+         AND users.id NOT IN (SELECT following_id FROM follows WHERE follower_id = ?)
+         AND users.id NOT IN (SELECT blocked_id FROM blocked_users WHERE blocker_id = ?)
+         AND users.id NOT IN (SELECT blocker_id FROM blocked_users WHERE blocked_id = ?)
+       ORDER BY users.created_at DESC
        LIMIT 10`,
-      [userId, userId, userId, userId, userId]
-    ).map(row => ({ id: row.id, displayName: row.display_name, avatarColor: row.avatar_color }));
+      [userId, userId, userId, userId]
+    ).filter((row) => canViewCrewProfile(userId, row.id)).map(row => serializeCrewmateWithRelationship(row, userId));
 
-    return json(res, 200, { friends, incoming, outgoing, following, followers, suggestions });
+    return json(res, 200, {
+      friends,
+      incoming: [],
+      outgoing: [],
+      following,
+      followers,
+      suggestions,
+      blockedUsers,
+      counts: {
+        friends: friends.length,
+        following: following.length,
+        followers: followers.length,
+        blocked: blockedUsers.length,
+      },
+    });
   }
 
   if (req.method === "POST" && pathname === "/api/friends/request") {
@@ -1718,6 +2607,7 @@ async function route(req, res) {
 
     const receiver = get("SELECT id, display_name FROM users WHERE id = ?", [receiverId]);
     if (!receiver) return json(res, 404, { error: "User not found." });
+    if (!canViewCrewProfile(userId, receiverId)) return json(res, 403, { error: "This profile is private." });
 
     const u1 = userId < receiverId ? userId : receiverId;
     const u2 = userId < receiverId ? receiverId : userId;
@@ -1858,7 +2748,7 @@ async function route(req, res) {
       run("INSERT INTO daily_objectives (id, user_id, title, type, target_count, current_count, completed, date) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
         [obj2Id, userId, "Add a transmission comment", "comment", 1, 0, 0, today]);
       run("INSERT INTO daily_objectives (id, user_id, title, type, target_count, current_count, completed, date) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
-        [obj3Id, userId, "Send 1 friend request", "request", 1, 0, 0, today]);
+        [obj3Id, userId, "Follow 1 crewmate", "request", 1, 0, 0, today]);
         
       objectives = all("SELECT * FROM daily_objectives WHERE user_id = ? AND date = ?", [userId, today]);
       
@@ -1920,6 +2810,7 @@ async function route(req, res) {
 
 setupDatabase();
 seedDatabase();
+ensureAstronomySeedContent();
 ensureDemoCrewmates();
 
 const server = createServer((req, res) => {

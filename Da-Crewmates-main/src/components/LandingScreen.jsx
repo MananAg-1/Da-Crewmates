@@ -283,17 +283,17 @@ export default function LandingScreen({ onEnter }) {
         <FadeInSection>
           <div className="heroContent">
             <h1 className="heroTitle">
-              Stop Doomscrolling. <br /> <span className="textGradient">Start Exploring.</span>
+              Social Space, <br /> <span className="textGradient">Built Like A Ship.</span>
             </h1>
             <p className="heroSubtitle">
-              We built a playable world where you actually walk into rooms instead of endlessly swiping a feed. Hang out, post updates in the Cafeteria, and do missions with your crew.
+              Da Crewmates turns posting, profiles, messages, reports, and live community stats into a navigable station. Create astronomy-focused posts, visit rooms, manage privacy, and stay connected without a flat endless feed.
             </p>
             <div className="heroActions">
               <button className="premiumButton primary" type="button" onClick={() => setShowDock(true)}>
-                Get Your Crew Pass
+                Enter The Station
                 <span className="buttonGlow" />
               </button>
-              <a href="#features" className="premiumButton secondary">See How It Works</a>
+              <a href="#features" className="premiumButton secondary">View Features</a>
             </div>
           </div>
         </FadeInSection>
@@ -302,22 +302,43 @@ export default function LandingScreen({ onEnter }) {
           <FadeInSection>
             <div className="featureCard">
               <div className="featureIcon feedIcon" />
-              <h3>Ditch the Feed</h3>
-              <p>Instead of a vertical timeline, you get a ship. Walk into the Cafeteria for the daily gossip or hit the Reactor Room for serious talk.</p>
+              <h3>Astronomy Posts</h3>
+              <p>Posts are organized around Astrophysics, Astrometry, Astrogeology, and Astrobiology, with related starter discussions from the Observatory Crew.</p>
             </div>
           </FadeInSection>
           <FadeInSection>
             <div className="featureCard">
               <div className="featureIcon missionIcon" />
-              <h3>Actually Do Stuff</h3>
-              <p>Liking posts is boring. Complete missions with your crew, earn ranks, and unlock stuff to make your avatar look cooler.</p>
+              <h3>Room-Based Activity</h3>
+              <p>Open station rooms to create posts, read feeds, track objectives, view MedBay analytics, and feed real activity into Reactor statistics.</p>
             </div>
           </FadeInSection>
           <FadeInSection>
             <div className="featureCard">
               <div className="featureIcon profileIcon" />
-              <h3>A Chill Vibe</h3>
-              <p>No algorithms screaming at you. Just a cozy, lo-fi space station that's actually nice to leave open on your second monitor.</p>
+              <h3>Crew Profiles</h3>
+              <p>View other crewmates, their visible posts, friends, followers, and following lists, with Shields privacy deciding what each viewer can access.</p>
+            </div>
+          </FadeInSection>
+          <FadeInSection>
+            <div className="featureCard">
+              <div className="featureIcon profileIcon" />
+              <h3>Shields Privacy</h3>
+              <p>Control profile visibility, DM permissions, online presence, zone activity sharing, content filtering, alerts, and blocked crewmates from one panel.</p>
+            </div>
+          </FadeInSection>
+          <FadeInSection>
+            <div className="featureCard">
+              <div className="featureIcon feedIcon" />
+              <h3>Social Messaging</h3>
+              <p>Follow crewmates, become mutual friends, open direct messages, share posts into chats, and see read status backed by the API.</p>
+            </div>
+          </FadeInSection>
+          <FadeInSection>
+            <div className="featureCard">
+              <div className="featureIcon missionIcon" />
+              <h3>Safety And Stats</h3>
+              <p>Security reports are stored for review and can email devs, while Reactor shows registered crew, activity mix, topic counts, network health, and open reports.</p>
             </div>
           </FadeInSection>
         </div>
@@ -483,7 +504,7 @@ export default function LandingScreen({ onEnter }) {
       </section>
 
       <footer className="landingFooter" aria-label="Site footer">
-        <span>© {new Date().getFullYear()} DevSpace. All rights reserved.</span>
+        <span>&copy; {new Date().getFullYear()} Da Crewmates. All rights reserved.</span>
         <div className="footerLinks">
           <a href="#about">About Us</a>
           <a href="#contact">Contact Us</a>

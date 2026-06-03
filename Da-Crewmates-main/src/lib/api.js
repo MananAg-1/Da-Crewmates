@@ -1,4 +1,28 @@
-const API_BASE = (import.meta.env.VITE_API_BASE_URL || "http://localhost:4000").replace(/\/$/, "");
+function getApiBase() {
+  if (import.meta.env.VITE_API_BASE_URL) {
+    return normalizeApiBase(import.meta.env.VITE_API_BASE_URL);
+  }
+
+  if (typeof window === "undefined") return "http://localhost:4000";
+
+  const { hostname, protocol } = window.location;
+  if (hostname === "localhost" || hostname === "127.0.0.1") {
+    return "http://localhost:4000";
+  }
+  if (/^\d{1,3}(?:\.\d{1,3}){3}$/.test(hostname)) {
+    return `${protocol}//${hostname}:4000`;
+  }
+  return "";
+}
+
+function normalizeApiBase(value) {
+  return String(value || "")
+    .trim()
+    .replace(/\/+$/, "")
+    .replace(/\/api$/i, "");
+}
+
+const API_BASE = getApiBase();
 
 async function request(path, options = {}) {
   const response = await fetch(`${API_BASE}${path}`, options);

@@ -3,6 +3,30 @@ import LandingScreen from "./components/LandingScreen";
 import SplashScreen from "./components/SplashScreen";
 import { login, signup } from "./lib/api";
 
+function getGameApiBase() {
+  if (import.meta.env.VITE_API_BASE_URL) {
+    return normalizeApiBase(import.meta.env.VITE_API_BASE_URL);
+  }
+
+  if (typeof window === "undefined") return "http://localhost:4000";
+
+  const { hostname, protocol } = window.location;
+  if (hostname === "localhost" || hostname === "127.0.0.1") {
+    return "http://localhost:4000";
+  }
+  if (/^\d{1,3}(?:\.\d{1,3}){3}$/.test(hostname)) {
+    return `${protocol}//${hostname}:4000`;
+  }
+  return "";
+}
+
+function normalizeApiBase(value) {
+  return String(value || "")
+    .trim()
+    .replace(/\/+$/, "")
+    .replace(/\/api$/i, "");
+}
+
 export default function App() {
   const [user, setUser] = useState(null);
   const [showSplash, setShowSplash] = useState(true);
@@ -39,7 +63,7 @@ export default function App() {
     <main className="appShell">
       <iframe
         title="Da Crewmates Game"
-        src={`/game/index.html?authed=1&crew=${encodeURIComponent(user.displayName || user.email || "Crewmate")}&user=${encodeURIComponent(user.id)}`}
+        src={`/game/index.html?authed=1&crew=${encodeURIComponent(user.displayName || user.email || "Crewmate")}&user=${encodeURIComponent(user.id)}&api=${encodeURIComponent(getGameApiBase())}`}
         className="gameEmbedFrame"
       />
     </main>

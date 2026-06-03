@@ -37,6 +37,24 @@ npm run dev
 
 Then open the Vite URL (usually `http://localhost:5173`).
 
+## Two-Device LAN Demo
+
+Use one computer as the host for both the API and frontend.
+
+1. Find the host computer's LAN IP address.
+2. In one terminal, start the backend:
+```bash
+npm run api:dev
+```
+3. In another terminal, start Vite on the network:
+```bash
+npm run dev -- --host 0.0.0.0
+```
+4. Set `VITE_API_BASE_URL` to `http://<host-lan-ip>:4000` before starting Vite if the second device is not the host computer.
+5. Open `http://<host-lan-ip>:5173` on both devices.
+
+Demo flow: create two crew accounts, send and accept a friend request, create a post in Electrical, share it from a feed surface, and read it on the other device in Communications > Messages. MedBay updates when rooms are opened because room visits are persisted by the backend.
+
 ## Current Integration Notes
 
 - React login flow is the primary entry.
