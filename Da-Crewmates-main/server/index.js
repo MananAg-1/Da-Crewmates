@@ -34,7 +34,7 @@ const dbPath = process.env.APP_DATABASE_PATH
   : join(dataDir, "devspace.sqlite");
 mkdirSync(dirname(dbPath), { recursive: true });
 const db = new DatabaseSync(dbPath);
-const PORT = Number(process.env.API_PORT || 4000);
+const PORT = Number(process.env.API_PORT || process.env.PORT || 4000);
 const NASA_API_KEY = process.env.NASA_API_KEY || "DEMO_KEY";
 const DEMO_USER_ID = "demo-user";
 const APOD_FALLBACK = {
