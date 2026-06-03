@@ -2,7 +2,7 @@
 
 Da Crewmates is a gamified social platform that turns posting, profiles, direct messages, activity stats, and privacy controls into a navigable space-station experience. Instead of another endless feed, the app gives each social workflow a room on the ship.
 
-**Live demo:** Deployed on Vercel. Add the production URL here before submission.
+**Live demo:** Deployed on Vercel at https://da-crewmates.vercel.app
 
 ## Why It Exists
 
