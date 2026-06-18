@@ -4314,7 +4314,7 @@ function initCommsMemes(container) {
   btn.addEventListener('click', () => {
     currentMemeIndex++;
     // Seamless rollover setup loop or manual indexing up to your folder bounds
-    if (currentMemeIndex > 5) currentMemeIndex = 1; 
+    if (currentMemeIndex > 30) currentMemeIndex = 1; 
     imgDisplay.src = `Memes/${currentMemeIndex}.png`;
   });
 }
