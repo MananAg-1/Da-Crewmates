@@ -3853,3 +3853,468 @@ function saveWeaponsPostToStorage() {
     alert("Transmission bookmarked in Storage data banks.");
   }
 }
+//Uhhhhhhhhhhhhhhh idk how to hide ts
+
+window.addEventListener('load', () => {
+  //heheheheh
+  if (!document.getElementById('map-wrapper')) return;
+
+  const easterCanvas = document.createElement('canvas');
+  const eCtx = easterCanvas.getContext('2d', { willReadFrequently: true });
+  const easterMapImg = new Image();
+  easterMapImg.src = 'Assets/Map - Easter.png';
+
+  easterMapImg.onload = () => {
+    //The map loadation for click detection
+    easterCanvas.width = (typeof worldWidth !== 'undefined' && worldWidth > 0) ? worldWidth : easterMapImg.width;
+    easterCanvas.height = (typeof worldHeight !== 'undefined' && worldHeight > 0) ? worldHeight : easterMapImg.height;
+    eCtx.drawImage(easterMapImg, 0, 0, easterCanvas.width, easterCanvas.height);
+  };
+
+  const targetMap = document.getElementById('map-wrapper');
+  targetMap.addEventListener('click', (e) => {
+    try {
+      const rect = targetMap.getBoundingClientRect();
+      const currentZoom = (typeof zoomLevel !== 'undefined') ? zoomLevel : 0.5;
+      
+      const clickX = (e.clientX - rect.left) / currentZoom;
+      const clickY = (e.clientY - rect.top) / currentZoom;
+
+      if (clickX >= 0 && clickX <= easterCanvas.width && clickY >= 0 && clickY <= easterCanvas.height) {
+        const pixel = eCtx.getImageData(Math.floor(clickX), Math.floor(clickY), 1, 1).data;
+        
+        // Transparent regions terminator
+        if (pixel[3] === 0) return;
+
+        const hex = "#" + ((1 << 24) + (pixel[0] << 16) + (pixel[1] << 8) + pixel[2]).toString(16).slice(1).toUpperCase();
+        
+        // Pass 
+        handleEasterEggTrigger(hex);
+      }
+    } catch (err) {
+      console.error("Easter egg system read error safety catch:", err);
+    }
+  });
+});
+
+function handleEasterEggTrigger(hexColor) {
+  const overlay = document.getElementById('terminal-overlay');
+  const title = document.getElementById('terminal-title');
+  const body = document.getElementById('terminal-body');
+
+  if (!overlay || !body) return;
+
+  if (window.currentEasterEggLoop) {
+    cancelAnimationFrame(window.currentEasterEggLoop);
+  }
+
+  // FIX: Force the hidden class off so it actually appears!
+  overlay.classList.remove('hidden');
+  
+  // FIX: Tell your base game loop that the terminal is open so the 
+  // player stops moving in the background and 'F' to close works.
+  if (typeof isTerminalOpen !== 'undefined') {
+    isTerminalOpen = true; 
+  }
+
+  switch(hexColor) {
+    case '#CF3476':
+      title.innerText = "Navigation: Asteroid Dodge";
+      initNavigationGame(body);
+      break;
+    case '#59351F':
+      title.innerText = "Weapons: Tactical Blaster";
+      initWeaponsGame(body);
+      break;
+    case '#25221B':
+      title.innerText = "Emergency Systems";
+      initEmergencySystem(body);
+      break;
+    case '#7E7B52':
+      title.innerText = "Reactor: Memory Sequence";
+      initReactorGame(body);
+      break;
+    case '#382C1E':
+      title.innerText = "Comms: Subspace Memes";
+      initCommsMemes(body);
+      break;
+    default:
+      break;
+  }
+}
+
+
+function initNavigationGame(container) {
+  // Colllllllliiisiiiionnn Image
+  const shipCollisionImg = new Image();
+  shipCollisionImg.src = 'Assets/Ship - Collision.png'; 
+
+  container.innerHTML = `
+    <div style="position:relative; width:100%; height:300px; background:#02050c; overflow:hidden;">
+      <canvas id="navGameCanvas" width="400" height="300" style="display:block; margin:0 auto; border:2px solid #555;"></canvas>
+      <div id="restartContainer" style="display:none; position:absolute; top:120px; width:100%; text-align:center;">
+        <button id="restartBtn" style="padding:10px 20px; font-size:16px; cursor:pointer; background:#ef3340; color:white; border:none; border-radius:5px;">Restart Game</button>
+      </div>
+    </div>
+  `;
+
+  const canvas = document.getElementById('navGameCanvas');
+  const gameCtx = canvas.getContext('2d');
+  
+
+  const collisionCanvas = document.createElement('canvas');
+  collisionCanvas.width = 40;
+  collisionCanvas.height = 46;
+  const colCtx = collisionCanvas.getContext('2d');
+
+  shipCollisionImg.onload = () => {
+    // Same dimensions
+    colCtx.drawImage(shipCollisionImg, 0, 0, 40, 46);
+  };
+
+  let ship = { x: 180, y: 230, w: 40, h: 46 };
+  let asteroids = [];
+  let score = 0;
+  let gameActive = true;
+
+  const shipImg = new Image();
+  shipImg.src = 'Assets/Ship.png';
+
+  const keys = {};
+  window.addEventListener('keydown', (e) => keys[e.key] = true);
+  window.addEventListener('keyup', (e) => keys[e.key] = false);
+
+  
+  function checkCollision(targetWorldX, targetWorldY) {
+    if (targetWorldX < 0 || targetWorldX + ship.w > canvas.width) return true;
+
+    // Translateeee global coordinates down to local 40x46 canvas points
+    let localX = Math.floor(targetWorldX - ship.x);
+    let localY = Math.floor(targetWorldY - ship.y);
+
+    // Safeguard lookup bounds
+    if (localX < 0 || localX >= 40 || localY < 0 || localY >= 46) return false;
+
+    const pixel = colCtx.getImageData(localX, localY, 1, 1).data;
+    // True if hit matches blue 
+    return (pixel[0] < 50 && pixel[1] < 50 && pixel[2] > 200);
+  }
+
+  function gameLoop() {
+    if (!gameActive) return;
+    gameCtx.clearRect(0, 0, canvas.width, canvas.height);
+
+    if (keys['ArrowLeft'] && !checkCollision(ship.x - 4, ship.y + 20)) ship.x -= 4;
+    if (keys['ArrowRight'] && !checkCollision(ship.x + 4, ship.y + 20)) ship.x += 4;
+
+    gameCtx.drawImage(shipImg, ship.x, ship.y, ship.w, ship.h);
+
+    if (Math.random() < 0.03) {
+      asteroids.push({ x: Math.random() * (canvas.width - 20), y: -20, size: 20, speed: 3 });
+    }
+
+    for (let i = asteroids.length - 1; i >= 0; i--) {
+      let a = asteroids[i];
+      a.y += a.speed;
+      gameCtx.fillStyle = '#7f8c8d';
+      gameCtx.beginPath();
+      gameCtx.arc(a.x, a.y, 10, 0, Math.PI * 2);
+      gameCtx.fill();
+
+      if (a.x < ship.x + ship.w && a.x + 20 > ship.x && a.y < ship.y + ship.h && a.y + 20 > ship.y) {
+        gameActive = false;
+        document.getElementById('restartContainer').style.display = 'block';
+        gameCtx.fillStyle = '#ef3340';
+        gameCtx.font = '20px sans-serif';
+        gameCtx.fillText("CRASHED! Score: " + score, 120, 100);
+      }
+      if (a.y > canvas.height) { asteroids.splice(i, 1); score++; }
+    }
+
+    gameCtx.fillStyle = '#fff';
+    gameCtx.font = '14px sans-serif';
+    gameCtx.fillText("Score: " + score, 10, 20);
+    
+    if (gameActive) window.currentEasterEggLoop = requestAnimationFrame(gameLoop);
+  }
+
+  document.getElementById('restartBtn').onclick = () => {
+    gameActive = true;
+    score = 0;
+    asteroids = [];
+    ship.x = 180;
+    document.getElementById('restartContainer').style.display = 'none';
+    gameLoop();
+  };
+
+  shipImg.onload = () => gameLoop();
+}
+function initWeaponsGame(container) {
+  container.innerHTML = `
+    <div style="text-align:center; color:#fff; font-family:sans-serif;">
+      <p style="margin:4px; color:#f39c12;">Target Goal: Zap RED targets. Avoid BLUE systems!</p>
+      <canvas id="weaponCanvas" width="400" height="250" style="background:#000; border:2px solid #333; cursor:crosshair;"></canvas>
+      <div id="wpnScore" style="margin-top:5px; font-weight:bold;">Score: 0</div>
+    </div>
+  `;
+  const canvas = document.getElementById('weaponCanvas');
+  const ctx = canvas.getContext('2d');
+  let score = 0;
+  let targets = [];
+
+  function spawnTarget() {
+    const isRed = Math.random() > 0.4;
+    targets.push({
+      x: Math.random() * (canvas.width - 30) + 15,
+      y: Math.random() * (canvas.height - 30) + 15,
+      r: 12,
+      color: isRed ? '#ef3340' : '#0000ff',
+      isRed: isRed,
+      timer: 120 
+    });
+  }
+
+  canvas.addEventListener('click', (e) => {
+    const rect = canvas.getBoundingClientRect();
+    const mx = e.clientX - rect.left;
+    const my = e.clientY - rect.top;
+
+    for (let i = targets.length - 1; i >= 0; i--) {
+      let t = targets[i];
+      let dist = Math.hypot(mx - t.x, my - t.y);
+      if (dist < t.r) {
+        if (t.isRed) score += 10;
+        else score -= 15;
+        targets.splice(i, 1);
+        document.getElementById('wpnScore').innerText = "Score: " + score;
+        break;
+      }
+    }
+  });
+
+  function update() {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    if (Math.random() < 0.04 && targets.length < 5) spawnTarget();
+
+    for (let i = targets.length - 1; i >= 0; i--) {
+      let t = targets[i];
+      t.timer--;
+      
+      ctx.fillStyle = t.color;
+      ctx.beginPath();
+      ctx.arc(t.x, t.y, t.r, 0, Math.PI * 2);
+      ctx.fill();
+
+      if (t.timer <= 0) targets.splice(i, 1);
+    }
+    window.currentEasterEggLoop = requestAnimationFrame(update);
+  }
+  update();
+}
+
+function initEmergencySystem(container) {
+  const randomPhrases = [
+    "You stare at the button. It stares back. Riveting stuff.",
+    "Just a dusty red button. Nothing to see here, keep moving.",
+    "You press it, but it just goes *click*. Complete radio silence.",
+    "Pretty sure ghosts don't file emergency reports.",
+    "Congratulations on finding this easter egg yayyaayy!",
+ "The button appreciates your concern but remains unhelpful.",
+  "Emergency button.exe has encountered a severe lack of emergencies.",
+  "Nothing happened. Exactly as designed.",
+  "You expected alarms. You got disappointment.",
+  "The button shrugs dramatically.",
+  "Somewhere, a tumbleweed rolls by.",
+  "The emergency team is currently imaginary.",
+  "You push the button. The button pushes back emotionally.",
+  "No sirens. No lights. Just vibes.",
+  "This button has a strict no-work policy.",
+  "A tiny voice whispers: 'Not implemented yet.'",
+  "The button files your report directly into the void.",
+  "404: Emergency not found.",
+  "Achievement unlocked: Pressed the Useless Button.",
+  "If this were a real emergency, we'd both be in trouble.",
+  "The button is on its coffee break.",
+  "You hear distant elevator music. Probably unrelated.",
+  "This feature is powered by hopes and placeholders.",
+  "You pressed it with confidence. Admirable.",
+  "The button blinks internally.",
+  "No emergencies detected. Carry on, citizen.",
+  "The red paint adds at least +10 urgency.",
+  "The button nods solemnly and does absolutely nothing.",
+  "An intern is pretending to look into it.",
+  "You found the world's least responsive panic button.",
+  "Pressing it again won't help. But you can try.",
+  "The button's warranty does not cover expectations.",
+  "You feel slightly more prepared. The system does not.",
+  "Some buttons launch rockets. This isn't one of them.",
+  "Your click has been carefully ignored.",
+  "The emergency owl is off duty.",
+  "This button exists purely for dramatic effect.",
+  "Task failed successfully.",
+  "Instructions unclear. Emergency stuck in ceiling fan.",
+  "Understandable. Have a nice day.",
+  "We've tried nothing and we're all out of ideas.",
+  "This is fine. 🔥🐶",
+  "Panic.exe has stopped responding.",
+  "Error 418: I'm a teapot, not an emergency service.",
+  "Skill issue.",
+  "The emergency button is currently buffering...",
+  "Please clap.",
+  "The button understood the assignment and chose violence. Just kidding, it did nothing.",
+  "Congratulations, you've discovered premium disappointment.",
+  "The button has entered goblin mode.",
+  "Your emergency is important to us. Estimated wait time: ∞",
+  "Loading consequences... 0%",
+  "Button pressed. Expectations lowered.",
+  "The button said 'bet' and then vanished emotionally.",
+  "You pressed the button. The button said 'nah'.",
+  "Emergency? In this economy?",
+  "The button is built different. Unfortunately.",
+  "No thoughts. Head empty. Button empty too.",
+  "The button passed the vibe check. Functionality did not.",
+  "This feature ships next quarter™.",
+  "Coming soon since 2024.",
+  "The button works on my machine.",
+  "Your click has been forwarded to /dev/null.",
+  "Button not found. Have you tried panicking harder?",
+  "Press F to pay respects to this feature.",
+  "We've escalated your concern directly to the void.",
+  "The button is giving 404 energy.",
+  "Low-key not an emergency button.",
+  "The button ghosted your request.",
+  "POV: You expected functionality.",
+  "The button hit you with the classic 'new phone, who dis?'",
+  "The emergency button left you on read.",
+  "Certified bruh moment.",
+  "The button is just here for the aesthetics.",
+  "This button peaked in development.",
+  "You unlocked: Hidden Feature (it's useless).",
+  "The button said 'I ain't reading all that.'",
+  "Emergency status: we ball.",
+  "The button chose chaotic neutral.",
+  "Your panic has been queued behind 37 other panics.",
+  "The button is in its flop era.",
+  "One does not simply summon help.",
+  "You can tell it's serious because the button is red.",
+  "This interaction has been rated: mildly concerning.",
+  "The button posted an apology video and moved on.",
+  "Your emergency has been successfully ignored.",
+  "The button generated this response using 0% effort.",
+  "The servers are running on hopes, dreams, and duct tape.",
+  "The button would like to remain anonymous.",
+  "You found an easter egg. Unfortunately, the egg is empty.",
+  "The button is AFK.",
+  "Outstanding move. Nothing happened."
+];
+
+  const roll = Math.random();
+  if (roll > 0.10) {
+    // 90% Normal Dead-Air Sequence
+    const text = randomPhrases[Math.floor(Math.random() * randomPhrases.length)];
+    container.innerHTML = `
+      <div style="text-align:center; padding:40px; color:#fff; font-family:sans-serif;">
+        <h2 style="color:#ef3340;">🚨 Emergency Console</h2>
+        <p style="font-style:italic; margin-top:20px; color:#000000;">"${text}"</p>
+      </div>
+    `;
+  } else {
+    // 10% Jump-scare Emergency Red Alert Fakeout Event
+    container.innerHTML = `
+      <div id="emergencyAlarmScreen" style="text-align:center; padding:40px; color:#fff; background:#5a0000; animation: redFlash 0.5s infinite alternate; height:100%;">
+        <h1 style="font-size:28px; margin:0; letter-spacing:2px;">🚨 EMERGENCY MEETING 🚨</h1>
+        <p id="alarmSubtext" style="font-weight:bold; margin-top:30px; font-size:16px;">SABBING SYSTEMS IN PROGRESS...</p>
+      </div>
+      <style>
+        @keyframes redFlash {
+          0% { background: #5a0000; }
+          100% { background: #b30000; }
+        }
+      </style>
+    `;
+
+    setTimeout(() => {
+      const sub = document.getElementById('alarmSubtext');
+      const screen = document.getElementById('emergencyAlarmScreen');
+      if (sub && screen) {
+        screen.style.animation = "none";
+        screen.style.background = "#1a1a1a";
+        sub.innerText = "..... oh wait, nevermind. System scans confirm 0 lifeforms around.";
+      }
+    }, 5000);
+  }
+}
+
+function initReactorGame(container) {
+  container.innerHTML = `
+    <div style="text-align:center; color:#fff; font-family:sans-serif;">
+      <p id="reactorHint" style="margin:5px; color:#2ecc71;">Watch the Reactor Sequence!</p>
+      <div id="reactorGrid" style="display:grid; grid-template-columns: repeat(2, 70px); gap:10px; justify-content:center; margin:15px auto;">
+        <div class="react-node" data-id="0" style="width:70px; height:70px; background:#1abc9c; border-radius:8px; cursor:pointer;"></div>
+        <div class="react-node" data-id="1" style="width:70px; height:70px; background:#e67e22; border-radius:8px; cursor:pointer;"></div>
+        <div class="react-node" data-id="2" style="width:70px; height:70px; background:#9b59b6; border-radius:8px; cursor:pointer;"></div>
+        <div class="react-node" data-id="3" style="width:70px; height:70px; background:#34495e; border-radius:8px; cursor:pointer;"></div>
+      </div>
+    </div>
+  `;
+
+  const nodes = container.querySelectorAll('.react-node');
+  let sequence = [Math.floor(Math.random()*4), Math.floor(Math.random()*4), Math.floor(Math.random()*4)];
+  let userStep = 0;
+
+  function flashSequence() {
+    let i = 0;
+    const interval = setInterval(() => {
+      if (i >= sequence.length) {
+        clearInterval(interval);
+        if(document.getElementById('reactorHint')) document.getElementById('reactorHint').innerText = "Replicate Pattern Now!";
+        return;
+      }
+      let targetNode = container.querySelector(`[data-id="${sequence[i]}"]`);
+      let origBg = targetNode.style.background;
+      targetNode.style.background = '#ffffff';
+      setTimeout(() => targetNode.style.background = origBg, 300);
+      i++;
+    }, 600);
+  }
+
+  nodes.forEach(node => {
+    node.addEventListener('click', (e) => {
+      const clickedId = parseInt(e.target.getAttribute('data-id'));
+      if (clickedId === sequence[userStep]) {
+        userStep++;
+        if (userStep === sequence.length) {
+          document.getElementById('reactorHint').innerText = "🛠️ Reactor Core Stabilized!";
+        }
+      } else {
+        document.getElementById('reactorHint').innerText = "❌ Meltdown Interrupted! Try again.";
+        userStep = 0;
+        setTimeout(flashSequence, 1000);
+      }
+    });
+  });
+
+  setTimeout(flashSequence, 500);
+}
+
+function initCommsMemes(container) {
+  let currentMemeIndex = 1;
+  container.innerHTML = `
+    <div style="text-align:center; font-family:sans-serif; color:#fff;">
+      <div style="min-height:180px; display:flex; align-items:center; justify-content:center; background:#111; border-radius:6px; padding:10px;">
+        <img id="commsMemeDisplay" src="Memes/1.png" style="max-width:100%; max-height:160px; object-fit:contain;" onerror="this.src='data:image/svg+xml;utf8,<svg xmlns=\\'http://www.w3.org/2000/svg\\' width=\\'100\\' height=\\'40\\'><text y=\\'25\\' fill=\\'white\\'>Meme Not Found</text></svg>'"/>
+      </div>
+      <button id="nextMemeBtn" class="dynamic-btn" style="margin-top:12px; padding:6px 16px; background:#0057b7; border:none; border-radius:4px; color:#white;">Download Next Log Entry</button>
+    </div>
+  `;
+
+  const imgDisplay = document.getElementById('commsMemeDisplay');
+  const btn = document.getElementById('nextMemeBtn');
+
+  btn.addEventListener('click', () => {
+    currentMemeIndex++;
+    // Seamless rollover setup loop or manual indexing up to your folder bounds
+    if (currentMemeIndex > 5) currentMemeIndex = 1; 
+    imgDisplay.src = `Memes/${currentMemeIndex}.png`;
+  });
+}
