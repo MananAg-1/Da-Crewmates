@@ -104,6 +104,11 @@ test("allows browser preflight for crew identity headers", async () => {
   assert.match(allowedHeaders.toLowerCase(), /x-display-name/);
 });
 
+test("supports HEAD health checks for uptime monitors", async () => {
+  const response = await fetch(`${API_BASE}/api/health`, { method: "HEAD" });
+  assert.equal(response.status, 200);
+});
+
 test("enforces post ownership on deletion", async () => {
   const owner = `owner-${runId}`;
   const intruder = `intruder-${runId}`;

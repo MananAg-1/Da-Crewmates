@@ -1604,6 +1604,15 @@ async function route(req, res) {
   const pathname = url.pathname;
 
   if (req.method === "OPTIONS") return json(res, 204, {});
+  if (req.method === "HEAD" && pathname === "/api/health") {
+    res.writeHead(200, {
+      "Content-Type": "application/json",
+      "Access-Control-Allow-Origin": "*",
+      "Access-Control-Allow-Methods": "GET,HEAD,POST,PATCH,DELETE,OPTIONS",
+      "Access-Control-Allow-Headers": "Content-Type,Authorization,x-user-id,x-display-name",
+    });
+    return res.end();
+  }
   if (req.method === "GET" && pathname === "/api/health") return json(res, 200, { ok: true });
   if (req.method === "GET" && pathname === "/api/space/apod") {
     if (apodCache && Date.now() - apodCache.cachedAt < APOD_CACHE_TTL_MS) {
