@@ -95,10 +95,17 @@ const terminalContentRegistry = {
       ArrowLeft: false, a: false,
       ArrowRight: false, d: false
     };
+
+    function isTextEntryTarget(target) {
+      if (!target || !(target instanceof Element)) return false;
+      return Boolean(target.closest('input, textarea, select, [contenteditable="true"]'));
+    }
+
     loadExternalHTMLTemplates();
 
 
     window.addEventListener('keydown', (e) => { 
+      if (isTextEntryTarget(e.target)) return;
       if (isWarpingAnimationActive) return; 
       if (isNavHUDOpen) {
         if (e.key === 'Escape' || e.key.toLowerCase() === 'f') closeNavigationHUD();
@@ -115,7 +122,10 @@ const terminalContentRegistry = {
       if (e.key in keys) keys[e.key] = true; 
     });
     
-    window.addEventListener('keyup', (e) => { if (e.key in keys) keys[e.key] = false; });
+    window.addEventListener('keyup', (e) => {
+      if (isTextEntryTarget(e.target)) return;
+      if (e.key in keys) keys[e.key] = false;
+    });
 
     const collisionImg = new Image();
     const zoningImg = new Image();
@@ -3981,8 +3991,14 @@ function initNavigationGame(container) {
   shipImg.src = 'Assets/Ship.png';
 
   const keys = {};
-  window.addEventListener('keydown', (e) => keys[e.key] = true);
-  window.addEventListener('keyup', (e) => keys[e.key] = false);
+  window.addEventListener('keydown', (e) => {
+    if (isTextEntryTarget(e.target)) return;
+    keys[e.key] = true;
+  });
+  window.addEventListener('keyup', (e) => {
+    if (isTextEntryTarget(e.target)) return;
+    keys[e.key] = false;
+  });
 
   
   function checkCollision(targetWorldX, targetWorldY) {
