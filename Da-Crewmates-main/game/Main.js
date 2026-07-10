@@ -2314,6 +2314,10 @@ const friendsState = {
   dmMessages: [],
   selectedThreadId: null,
   dmError: "",
+  groupDraft: {
+    name: "",
+    selectedMemberIds: []
+  },
   profile: {
     open: false,
     loading: false,
@@ -2409,23 +2413,29 @@ function renderFriendsList() {
     container.innerHTML = `
       <div class="dm-panel">
         <div class="dm-thread-list">
+          ${renderDmGroupCreator()}
           ${friendsState.dmError ? `<p class="friends-error-banner">${escapeHtml(friendsState.dmError)}</p>` : ""}
           ${threads.length === 0 ? `<p class="friends-empty-msg">No DM threads yet. Select a friend and hit Message.</p>` : threads.map((thread) => {
             const selected = thread.id === friendsState.selectedThreadId;
+            const isGroup = Boolean(thread.isGroup);
             const other = thread.otherUser || {};
+            const title = getDmThreadTitle(thread);
+            const subtitle = isGroup ? `${(thread.members || []).length} members` : "Direct message";
+            const avatarText = isGroup ? "G" : (title || "C").charAt(0).toUpperCase();
+            const avatarColor = isGroup ? "#f6c243" : (other.avatarColor || "cyan");
             const preview = formatDmThreadPreview(thread.lastMessage);
             return `
-              <button class="dm-thread-row ${selected ? "selected" : ""}" type="button" onclick="selectDmThread('${thread.id}')">
-                <span class="friends-avatar" style="background:${escapeHtml(other.avatarColor || "cyan")};">${escapeHtml((other.displayName || "C").charAt(0).toUpperCase())}</span>
-                <span><strong>${escapeHtml(other.displayName || other.id || "Crewmate")}</strong><small>${escapeHtml(preview)}</small></span>
+              <button class="dm-thread-row ${selected ? "selected" : ""}" type="button" onclick="selectDmThread('${escapeInlineArg(thread.id)}')">
+                <span class="friends-avatar" style="background:${escapeHtml(avatarColor)};">${escapeHtml(avatarText)}</span>
+                <span><strong>${escapeHtml(title)}</strong><small>${escapeHtml(subtitle)} | ${escapeHtml(preview)}</small></span>
               </button>
             `;
           }).join("")}
         </div>
         <div class="dm-thread-pane">
           <div class="dm-thread-meta">
-            <strong>${selectedThread ? escapeHtml(selectedThread.otherUser?.displayName || "Crewmate") : "Select a thread"}</strong>
-            <span>${selectedThread ? "Direct message" : "Messages are stored on the backend"}</span>
+            <strong>${selectedThread ? escapeHtml(getDmThreadTitle(selectedThread)) : "Select a thread"}</strong>
+            <span>${selectedThread ? escapeHtml(getDmThreadSubtitle(selectedThread)) : "Messages are stored on the backend"}</span>
           </div>
           <div id="dm-message-list" class="dm-message-list">
             ${renderDmMessagesMarkup()}
@@ -2467,6 +2477,45 @@ function renderFriendsList() {
     return;
   }
   container.innerHTML = renderFriendRowsMarkup(rows);
+}
+
+function getDmThreadTitle(thread) {
+  if (!thread) return "Crewmate";
+  if (thread.isGroup) return thread.name || "Crew Group";
+  return thread.otherUser?.displayName || thread.otherUser?.id || "Crewmate";
+}
+
+function getDmThreadSubtitle(thread) {
+  if (!thread) return "";
+  if (thread.isGroup) {
+    const names = (thread.members || [])
+      .map((member) => member.displayName || member.id)
+      .filter(Boolean);
+    return `${names.length} members${names.length ? `: ${names.join(", ")}` : ""}`;
+  }
+  return "Direct message";
+}
+
+function renderDmGroupCreator() {
+  const friends = friendsState.data.friends || [];
+  const selected = new Set(friendsState.groupDraft.selectedMemberIds);
+  return `
+    <div class="dm-group-creator">
+      <strong>Create Group</strong>
+      <input id="dm-group-name-input" class="dynamic-input" type="text" maxlength="60" placeholder="Group name" value="${escapeHtml(friendsState.groupDraft.name)}">
+      <div class="dm-group-friend-list">
+        ${friends.length < 2
+          ? `<p class="friends-empty-msg">Add at least two mutual friends to create a group.</p>`
+          : friends.map((friend) => `
+            <label class="dm-group-friend">
+              <input type="checkbox" value="${escapeHtml(friend.id)}" ${selected.has(friend.id) ? "checked" : ""}>
+              <span>${escapeHtml(friend.displayName || friend.id)}</span>
+            </label>
+          `).join("")}
+      </div>
+      <button class="dynamic-btn" type="button" onclick="createDmGroup()" ${friends.length < 2 ? "disabled" : ""}>Create Group</button>
+    </div>
+  `;
 }
 
 function renderFriendRowsMarkup(rows) {
@@ -2961,6 +3010,39 @@ function openDmWithUser(receiverId) {
     .catch((error) => {
       friendsState.dmError = formatCrewPrivacyError(error, "Could not open DM");
       friendsState.activeTab = "messages";
+      renderFriendsHub();
+    });
+}
+
+function createDmGroup() {
+  const nameInput = document.getElementById("dm-group-name-input");
+  const memberInputs = Array.from(document.querySelectorAll(".dm-group-friend input[type='checkbox']:checked"));
+  const name = nameInput ? nameInput.value.trim() : "";
+  const memberIds = memberInputs.map((input) => input.value).filter(Boolean);
+  friendsState.groupDraft = { name, selectedMemberIds: memberIds };
+  if (!name || memberIds.length < 2) {
+    friendsState.dmError = "Enter a group name and choose at least two friends.";
+    renderFriendsHub();
+    return;
+  }
+
+  apiRequest("/api/dm/groups", {
+    method: "POST",
+    body: JSON.stringify({ name, memberIds })
+  })
+    .then((data) => {
+      const thread = data.thread;
+      if (thread && !friendsState.dmThreads.some((item) => item.id === thread.id)) {
+        friendsState.dmThreads.unshift(thread);
+      }
+      friendsState.groupDraft = { name: "", selectedMemberIds: [] };
+      friendsState.dmError = "";
+      friendsState.selectedThreadId = thread ? thread.id : friendsState.selectedThreadId;
+      friendsState.activeTab = "messages";
+      return loadDmMessages(friendsState.selectedThreadId);
+    })
+    .catch((error) => {
+      friendsState.dmError = formatCrewPrivacyError(error, "Could not create group");
       renderFriendsHub();
     });
 }

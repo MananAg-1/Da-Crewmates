@@ -356,6 +356,56 @@ test("supports friend-scoped direct messages", async () => {
   assert.equal(threads.data.threads.some((item) => item.id === thread.data.thread.id), true);
 });
 
+test("supports friend groups in Communications", async () => {
+  const owner = `group-owner-${runId}`;
+  const friendOne = `group-one-${runId}`;
+  const friendTwo = `group-two-${runId}`;
+  const stranger = `group-stranger-${runId}`;
+  await request("/api/users/me", { userId: friendOne, displayName: "Group One" });
+  await request("/api/users/me", { userId: friendTwo, displayName: "Group Two" });
+  await request("/api/users/me", { userId: stranger, displayName: "Group Stranger" });
+
+  const denied = await request("/api/dm/groups", {
+    userId: owner,
+    method: "POST",
+    body: { name: "Bad Group", memberIds: [friendOne, stranger] }
+  });
+  assert.equal(denied.response.status, 403);
+
+  for (const friendId of [friendOne, friendTwo]) {
+    await request(`/api/users/${encodeURIComponent(friendId)}/follow`, { userId: owner, method: "POST" });
+    await request(`/api/users/${encodeURIComponent(owner)}/follow`, { userId: friendId, method: "POST" });
+  }
+
+  const created = await request("/api/dm/groups", {
+    userId: owner,
+    method: "POST",
+    body: { name: "Launch Crew", memberIds: [friendOne, friendTwo] }
+  });
+  assert.equal(created.response.status, 201);
+  assert.equal(created.data.thread.isGroup, true);
+  assert.equal(created.data.thread.name, "Launch Crew");
+  assert.equal(created.data.thread.members.length, 3);
+
+  const sent = await request(`/api/dm/threads/${created.data.thread.id}/messages`, {
+    userId: friendOne,
+    method: "POST",
+    body: { body: "Group comms online." }
+  });
+  assert.equal(sent.response.status, 201);
+
+  const ownerThreads = await request("/api/dm/threads", { userId: owner });
+  assert.equal(ownerThreads.data.threads.some((thread) => thread.id === created.data.thread.id && thread.isGroup), true);
+
+  const friendTwoRead = await request(`/api/dm/threads/${created.data.thread.id}/messages`, { userId: friendTwo });
+  assert.equal(friendTwoRead.response.status, 200);
+  assert.equal(friendTwoRead.data.thread.isGroup, true);
+  assert.equal(friendTwoRead.data.messages.some((message) => message.body === "Group comms online."), true);
+
+  const strangerRead = await request(`/api/dm/threads/${created.data.thread.id}/messages`, { userId: stranger });
+  assert.equal(strangerRead.response.status, 404);
+});
+
 test("enforces persisted shields privacy settings", async () => {
   const target = `privacy-target-${runId}`;
   const stranger = `privacy-stranger-${runId}`;

@@ -1808,6 +1808,36 @@ text-shadow: 1px 1px 1px #000;
   min-width: 0;
 }
 
+.dm-group-creator {
+  display: grid;
+  gap: 8px;
+  padding: 10px;
+  border: 2px solid #1d2a3b;
+  border-radius: 8px;
+  background: rgba(246, 194, 67, 0.16);
+}
+
+.dm-group-creator strong {
+  font-size: 13px;
+  text-transform: uppercase;
+}
+
+.dm-group-friend-list {
+  display: grid;
+  gap: 6px;
+  max-height: 118px;
+  overflow-y: auto;
+}
+
+.dm-group-friend {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  text-transform: none;
+}
+
 .dm-thread-row {
   display: grid;
   grid-template-columns: 38px 1fr;

@@ -771,9 +771,19 @@ function setupDatabase() {
       id TEXT PRIMARY KEY,
       user_id1 TEXT NOT NULL REFERENCES users(id),
       user_id2 TEXT NOT NULL REFERENCES users(id),
+      is_group INTEGER NOT NULL DEFAULT 0,
+      name TEXT,
+      owner_id TEXT REFERENCES users(id),
       created_at TEXT NOT NULL,
       updated_at TEXT NOT NULL,
       UNIQUE (user_id1, user_id2)
+    );
+
+    CREATE TABLE IF NOT EXISTS dm_thread_members (
+      thread_id TEXT NOT NULL REFERENCES dm_threads(id),
+      user_id TEXT NOT NULL REFERENCES users(id),
+      joined_at TEXT NOT NULL,
+      PRIMARY KEY (thread_id, user_id)
     );
 
     CREATE TABLE IF NOT EXISTS dm_messages (
@@ -835,6 +845,7 @@ function setupDatabase() {
     CREATE INDEX IF NOT EXISTS blocked_users_blocked_idx ON blocked_users(blocked_id, blocker_id);
     CREATE INDEX IF NOT EXISTS dm_threads_user1_idx ON dm_threads(user_id1);
     CREATE INDEX IF NOT EXISTS dm_threads_user2_idx ON dm_threads(user_id2);
+    CREATE INDEX IF NOT EXISTS dm_thread_members_user_idx ON dm_thread_members(user_id, thread_id);
     CREATE INDEX IF NOT EXISTS dm_messages_thread_idx ON dm_messages(thread_id, created_at);
     CREATE INDEX IF NOT EXISTS security_reports_status_idx ON security_reports(status, created_at);
     CREATE INDEX IF NOT EXISTS room_visits_user_idx ON room_visits(user_id, entered_at);
@@ -854,6 +865,22 @@ function setupDatabase() {
   const dmMessageCols = all("PRAGMA table_info(dm_messages)");
   const hasReadAt = dmMessageCols.some((col) => col.name === "read_at");
   if (!hasReadAt) db.exec("ALTER TABLE dm_messages ADD COLUMN read_at TEXT");
+
+  const dmThreadCols = all("PRAGMA table_info(dm_threads)");
+  const hasIsGroup = dmThreadCols.some((col) => col.name === "is_group");
+  const hasThreadName = dmThreadCols.some((col) => col.name === "name");
+  const hasOwnerId = dmThreadCols.some((col) => col.name === "owner_id");
+  if (!hasIsGroup) db.exec("ALTER TABLE dm_threads ADD COLUMN is_group INTEGER NOT NULL DEFAULT 0");
+  if (!hasThreadName) db.exec("ALTER TABLE dm_threads ADD COLUMN name TEXT");
+  if (!hasOwnerId) db.exec("ALTER TABLE dm_threads ADD COLUMN owner_id TEXT REFERENCES users(id)");
+  db.exec(`
+    INSERT OR IGNORE INTO dm_thread_members (thread_id, user_id, joined_at)
+    SELECT id, user_id1, created_at FROM dm_threads WHERE is_group = 0
+  `);
+  db.exec(`
+    INSERT OR IGNORE INTO dm_thread_members (thread_id, user_id, joined_at)
+    SELECT id, user_id2, created_at FROM dm_threads WHERE is_group = 0
+  `);
 
   run("UPDATE posts SET body = content WHERE body IS NULL OR body = ''");
   run("UPDATE posts SET title = substr(content, 1, 80) WHERE title IS NULL OR title = ''");
@@ -1222,7 +1249,7 @@ function getCrewRelationship(viewerId, targetId) {
 
 function getThreadForUsers(userId, otherUserId) {
   const [u1, u2] = orderedUserPair(userId, otherUserId);
-  return get("SELECT * FROM dm_threads WHERE user_id1 = ? AND user_id2 = ?", [u1, u2]);
+  return get("SELECT * FROM dm_threads WHERE user_id1 = ? AND user_id2 = ? AND is_group = 0", [u1, u2]);
 }
 
 function createThreadForUsers(userId, otherUserId) {
@@ -1233,19 +1260,54 @@ function createThreadForUsers(userId, otherUserId) {
   const id = randomUUID();
   const timestamp = now();
   run(
-    "INSERT INTO dm_threads (id, user_id1, user_id2, created_at, updated_at) VALUES (?, ?, ?, ?, ?)",
-    [id, u1, u2, timestamp, timestamp]
+    "INSERT INTO dm_threads (id, user_id1, user_id2, is_group, name, owner_id, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+    [id, u1, u2, 0, null, userId, timestamp, timestamp]
   );
+  run("INSERT OR IGNORE INTO dm_thread_members (thread_id, user_id, joined_at) VALUES (?, ?, ?)", [id, u1, timestamp]);
+  run("INSERT OR IGNORE INTO dm_thread_members (thread_id, user_id, joined_at) VALUES (?, ?, ?)", [id, u2, timestamp]);
   return get("SELECT * FROM dm_threads WHERE id = ?", [id]);
 }
 
 function getDmThreadForUser(threadId, userId) {
-  return get("SELECT * FROM dm_threads WHERE id = ? AND (user_id1 = ? OR user_id2 = ?)", [threadId, userId, userId]);
+  return get(
+    `SELECT dm_threads.*
+     FROM dm_threads
+     JOIN dm_thread_members ON dm_thread_members.thread_id = dm_threads.id
+     WHERE dm_threads.id = ? AND dm_thread_members.user_id = ?`,
+    [threadId, userId]
+  );
+}
+
+function getDmThreadMembers(threadId) {
+  return all(
+    `SELECT users.id, users.display_name, users.avatar_color, dm_thread_members.joined_at
+     FROM dm_thread_members
+     JOIN users ON users.id = dm_thread_members.user_id
+     WHERE dm_thread_members.thread_id = ?
+     ORDER BY dm_thread_members.joined_at ASC`,
+    [threadId]
+  );
+}
+
+function createGroupThread(ownerId, name, memberIds) {
+  const id = randomUUID();
+  const timestamp = now();
+  const uniqueMembers = [...new Set([ownerId, ...memberIds])];
+  run(
+    "INSERT INTO dm_threads (id, user_id1, user_id2, is_group, name, owner_id, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+    [id, ownerId, memberIds[0], 1, name, ownerId, timestamp, timestamp]
+  );
+  for (const memberId of uniqueMembers) {
+    run("INSERT OR IGNORE INTO dm_thread_members (thread_id, user_id, joined_at) VALUES (?, ?, ?)", [id, memberId, timestamp]);
+  }
+  return get("SELECT * FROM dm_threads WHERE id = ?", [id]);
 }
 
 function serializeDmThread(row, viewerId) {
+  const isGroup = Boolean(row.is_group);
+  const members = getDmThreadMembers(row.id);
   const otherUserId = row.user_id1 === viewerId ? row.user_id2 : row.user_id1;
-  const otherUser = get("SELECT id, display_name, avatar_color FROM users WHERE id = ?", [otherUserId]);
+  const otherUser = isGroup ? null : get("SELECT id, display_name, avatar_color FROM users WHERE id = ?", [otherUserId]);
   const lastMessage = get(
     `SELECT dm_messages.*, users.display_name
      FROM dm_messages
@@ -1258,7 +1320,15 @@ function serializeDmThread(row, viewerId) {
 
   return {
     id: row.id,
-    otherUser: {
+    isGroup,
+    name: isGroup ? (row.name || "Crew Group") : "",
+    ownerId: row.owner_id || null,
+    members: members.map((member) => ({
+      id: member.id,
+      displayName: member.display_name,
+      avatarColor: member.avatar_color || "cyan",
+    })),
+    otherUser: isGroup ? null : {
       id: otherUserId,
       displayName: otherUser?.display_name || otherUserId,
       avatarColor: otherUser?.avatar_color || "cyan",
@@ -2435,13 +2505,41 @@ async function route(req, res) {
 
   if (req.method === "GET" && pathname === "/api/dm/threads") {
     const rows = all(
-      `SELECT *
+      `SELECT dm_threads.*
        FROM dm_threads
-       WHERE user_id1 = ? OR user_id2 = ?
-       ORDER BY updated_at DESC`,
-      [userId, userId]
-    ).filter((row) => !areBlockedEitherWay(userId, row.user_id1 === userId ? row.user_id2 : row.user_id1));
+       JOIN dm_thread_members ON dm_thread_members.thread_id = dm_threads.id
+       WHERE dm_thread_members.user_id = ?
+       ORDER BY dm_threads.updated_at DESC`,
+      [userId]
+    ).filter((row) => row.is_group || !areBlockedEitherWay(userId, row.user_id1 === userId ? row.user_id2 : row.user_id1));
     return json(res, 200, { threads: rows.map((row) => serializeDmThread(row, userId)) });
+  }
+
+  if (req.method === "POST" && pathname === "/api/dm/groups") {
+    const body = await readBody(req);
+    const name = String(body.name || "").trim();
+    const memberIds = Array.isArray(body.memberIds)
+      ? [...new Set(body.memberIds.map((id) => String(id || "").trim()).filter(Boolean))]
+      : [];
+    if (name.length < 1 || name.length > 60) return json(res, 400, { error: "Group name must be 1-60 characters." });
+    if (memberIds.length < 2 || memberIds.length > 8) return json(res, 400, { error: "Choose 2-8 friends for a group." });
+    if (memberIds.includes(userId)) return json(res, 400, { error: "You are already included in the group." });
+
+    for (const memberId of memberIds) {
+      const member = get("SELECT id FROM users WHERE id = ?", [memberId]);
+      if (!member) return json(res, 404, { error: "A selected crewmate was not found." });
+      if (areBlockedEitherWay(userId, memberId)) return json(res, 403, { error: "Groups cannot include blocked crewmates." });
+      if (getCrewRelationship(userId, memberId) !== "friend") return json(res, 403, { error: "Groups can only include mutual friends." });
+      if (!canDmUser(userId, memberId)) return json(res, 403, { error: "A selected crewmate's DM permissions prevent group messages." });
+    }
+
+    const thread = createGroupThread(userId, name, memberIds);
+    const sender = get("SELECT display_name FROM users WHERE id = ?", [userId]);
+    for (const memberId of memberIds) {
+      createNotification(memberId, `${sender?.display_name || userId} added you to ${name}.`);
+    }
+    broadcastSSE("dm_group_created", { threadId: thread.id, memberIds: [userId, ...memberIds] });
+    return json(res, 201, { thread: serializeDmThread(thread, userId) });
   }
 
   if (req.method === "POST" && pathname === "/api/dm/threads") {
@@ -2464,8 +2562,9 @@ async function route(req, res) {
     const threadId = dmMessagesMatch[1];
     const thread = getDmThreadForUser(threadId, userId);
     if (!thread) return json(res, 404, { error: "DM thread not found." });
+    const isGroup = Boolean(thread.is_group);
     const otherUserId = thread.user_id1 === userId ? thread.user_id2 : thread.user_id1;
-    if (areBlockedEitherWay(userId, otherUserId)) return json(res, 403, { error: "This DM is blocked." });
+    if (!isGroup && areBlockedEitherWay(userId, otherUserId)) return json(res, 403, { error: "This DM is blocked." });
 
     const readAt = now();
     const unreadFromOther = all(
@@ -2504,9 +2603,17 @@ async function route(req, res) {
     const threadId = dmMessagesMatch[1];
     const thread = getDmThreadForUser(threadId, userId);
     if (!thread) return json(res, 404, { error: "DM thread not found." });
+    const isGroup = Boolean(thread.is_group);
     const otherUserId = thread.user_id1 === userId ? thread.user_id2 : thread.user_id1;
-    if (areBlockedEitherWay(userId, otherUserId)) return json(res, 403, { error: "This DM is blocked." });
-    if (!canDmUser(userId, otherUserId)) return json(res, 403, { error: "This crewmate's DM permissions prevent that message." });
+    const members = getDmThreadMembers(threadId);
+    if (!isGroup && areBlockedEitherWay(userId, otherUserId)) return json(res, 403, { error: "This DM is blocked." });
+    if (!isGroup && !canDmUser(userId, otherUserId)) return json(res, 403, { error: "This crewmate's DM permissions prevent that message." });
+    if (isGroup) {
+      for (const member of members) {
+        if (member.id === userId) continue;
+        if (areBlockedEitherWay(userId, member.id)) return json(res, 403, { error: "This group includes a blocked crewmate." });
+      }
+    }
 
     const body = await readBody(req);
     const content = String(body.body || body.content || "").trim();
@@ -2525,9 +2632,13 @@ async function route(req, res) {
       [id]
     );
     const message = serializeDmMessage(row, userId);
-    const receiverId = thread.user_id1 === userId ? thread.user_id2 : thread.user_id1;
-    createNotification(receiverId, `${message.senderName} sent you a DM.`);
-    broadcastSSE("dm_message_created", { threadId, receiverId, senderId: userId, message });
+    const receiverIds = isGroup
+      ? members.map((member) => member.id).filter((id) => id !== userId)
+      : [thread.user_id1 === userId ? thread.user_id2 : thread.user_id1];
+    for (const receiverId of receiverIds) {
+      createNotification(receiverId, isGroup ? `${message.senderName} posted in ${thread.name || "Crew Group"}.` : `${message.senderName} sent you a DM.`);
+    }
+    broadcastSSE("dm_message_created", { threadId, receiverIds, senderId: userId, message });
     return json(res, 201, { message });
   }
 
