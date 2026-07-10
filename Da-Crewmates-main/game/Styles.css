@@ -1811,10 +1811,16 @@ text-shadow: 1px 1px 1px #000;
 .dm-group-creator {
   display: grid;
   gap: 8px;
+  min-width: 0;
   padding: 10px;
   border: 2px solid #1d2a3b;
   border-radius: 8px;
   background: rgba(246, 194, 67, 0.16);
+}
+
+.dm-group-creator .dynamic-input {
+  min-width: 0;
+  width: 100%;
 }
 
 .dm-group-creator strong {
@@ -1834,15 +1840,22 @@ text-shadow: 1px 1px 1px #000;
   grid-template-columns: auto 1fr;
   align-items: center;
   gap: 8px;
+  min-width: 0;
   font-size: 13px;
   text-transform: none;
 }
 
+.dm-group-friend span {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
 .dm-thread-row {
   display: grid;
-  grid-template-columns: 38px 1fr;
+  grid-template-columns: 38px minmax(0, 1fr);
   align-items: center;
   gap: 10px;
+  min-width: 0;
   padding: 8px;
   border: 2px solid #1d2a3b;
   border-radius: 8px;
@@ -1850,6 +1863,18 @@ text-shadow: 1px 1px 1px #000;
   color: #1d2a3b;
   text-align: left;
   cursor: pointer;
+}
+
+.dm-thread-row > span:last-child {
+  min-width: 0;
+}
+
+.dm-thread-row strong {
+  display: block;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .dm-thread-row.selected,
@@ -1862,11 +1887,11 @@ text-shadow: 1px 1px 1px #000;
   display: block;
   margin-top: 3px;
   max-width: 100%;
-  overflow: hidden;
+  overflow: visible;
   opacity: 0.7;
-  text-overflow: ellipsis;
+  overflow-wrap: anywhere;
   text-transform: none;
-  white-space: nowrap;
+  white-space: normal;
 }
 
 .dm-thread-meta {
@@ -1900,6 +1925,8 @@ text-shadow: 1px 1px 1px #000;
 
 .dm-message {
   width: min(82%, 360px);
+  max-width: 100%;
+  min-width: 0;
   padding: 8px 10px;
   border: 2px solid #1d2a3b;
   border-radius: 8px;
@@ -1929,6 +1956,7 @@ text-shadow: 1px 1px 1px #000;
 .dm-message p {
   margin: 0;
   overflow-wrap: anywhere;
+  word-break: break-word;
 }
 
 .dm-read-receipt {

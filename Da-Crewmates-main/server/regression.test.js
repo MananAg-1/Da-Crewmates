@@ -190,6 +190,70 @@ test("filters post history to the current user's posts", async () => {
   assert.equal(afterDelete.data.posts.some((post) => post.id === mine.data.post.id), false);
 });
 
+test("applies Shields parental content filter levels", async () => {
+  const parentUser = `parental-${runId}`;
+  const friend = `parental-friend-${runId}`;
+  await request("/api/users/me", { userId: friend, displayName: "Parental Friend" });
+
+  const strictSettings = await request("/api/users/me/privacy", {
+    userId: parentUser,
+    method: "PATCH",
+    body: { contentFilter: "Strict" }
+  });
+  assert.equal(strictSettings.response.status, 200);
+  assert.equal(strictSettings.data.privacySettings.contentFilter, "Strict");
+
+  const strictPost = await request("/api/posts", {
+    userId: parentUser,
+    method: "POST",
+    body: { title: "Strict filter check", body: "This damn signal should be blocked.", tag: "Astrophysics" }
+  });
+  assert.equal(strictPost.response.status, 400);
+  assert.match(strictPost.data.error, /Parental controls/);
+
+  const lenientSettings = await request("/api/users/me/privacy", {
+    userId: parentUser,
+    method: "PATCH",
+    body: { contentFilter: "Lenient" }
+  });
+  assert.equal(lenientSettings.response.status, 200);
+  assert.equal(lenientSettings.data.privacySettings.contentFilter, "Lenient");
+
+  const lenientPost = await request("/api/posts", {
+    userId: parentUser,
+    method: "POST",
+    body: { title: "Lenient filter check", body: "This damn signal should pass.", tag: "Astrophysics" }
+  });
+  assert.equal(lenientPost.response.status, 201);
+
+  await request("/api/users/me/privacy", {
+    userId: parentUser,
+    method: "PATCH",
+    body: { contentFilter: "Strict" }
+  });
+  const strictComment = await request(`/api/posts/${lenientPost.data.post.id}/comments`, {
+    userId: parentUser,
+    method: "POST",
+    body: { content: "That was a damn close reading." }
+  });
+  assert.equal(strictComment.response.status, 400);
+
+  await request(`/api/users/${encodeURIComponent(friend)}/follow`, { userId: parentUser, method: "POST" });
+  await request(`/api/users/${encodeURIComponent(parentUser)}/follow`, { userId: friend, method: "POST" });
+  const thread = await request("/api/dm/threads", {
+    userId: parentUser,
+    method: "POST",
+    body: { receiverId: friend }
+  });
+  assert.equal(thread.response.status, 200);
+  const strictMessage = await request(`/api/dm/threads/${thread.data.thread.id}/messages`, {
+    userId: parentUser,
+    method: "POST",
+    body: { body: "This damn relay should be blocked." }
+  });
+  assert.equal(strictMessage.response.status, 400);
+});
+
 test("rejects unsupported post image uploads", async () => {
   const boundary = `boundary-${runId}`;
   const body = [

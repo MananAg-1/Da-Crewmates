@@ -1791,7 +1791,7 @@ function applyShieldPrivacySettings(settings) {
   shieldsPrivacyState.applyingSettings = true;
   if (controls.privacy) controls.privacy.value = settings.privacyMode || "Enabled";
   if (controls.dm) controls.dm.value = settings.dmPermissions || "Crewmates Only";
-  if (controls.filter) controls.filter.value = settings.contentFilter || "Standard";
+  if (controls.filter) controls.filter.value = settings.contentFilter === "Relaxed" ? "Lenient" : (settings.contentFilter || "Standard");
   if (controls.online) controls.online.checked = settings.showOnlinePresence !== false;
   if (controls.activity) controls.activity.checked = settings.shareZoneActivity !== false;
   if (controls.alerts) controls.alerts.checked = settings.criticalAlerts !== false;
@@ -1849,7 +1849,7 @@ function updateShieldPrivacySummary() {
   let rating = 70;
   if (privacy.value !== "Public") rating += 8;
   if (dm.value !== "Everyone") rating += 7;
-  if (filter.value !== "Relaxed") rating += 5;
+  if (filter.value !== "Lenient") rating += 5;
   if (!online.checked) rating += 4;
   if (!activity.checked) rating += 4;
   if (alerts.checked) rating += 2;
@@ -2018,7 +2018,7 @@ function renderShieldAuditList() {
   const items = [
     { label: privacy && privacy.value === "Public" ? "Profile is publicly visible" : "Profile visibility protected", done: !privacy || privacy.value !== "Public" },
     { label: dm && dm.value === "Everyone" ? "DMs open to everyone" : "DMs limited to trusted crew", done: !dm || dm.value !== "Everyone" },
-    { label: filter && filter.value === "Relaxed" ? "Content filter relaxed" : "Content filter active", done: !filter || filter.value !== "Relaxed" },
+    { label: filter && filter.value === "Lenient" ? "Content filter lenient" : "Content filter active", done: !filter || filter.value !== "Lenient" },
     { label: online && online.checked ? "Online presence visible" : "Online presence hidden", done: !online || !online.checked },
     { label: activity && activity.checked ? "Zone activity shared" : "Zone activity private", done: !activity || !activity.checked },
     { label: `${shieldsPrivacyState.blockedUsers.length} blocked crew record${shieldsPrivacyState.blockedUsers.length === 1 ? "" : "s"}`, done: shieldsPrivacyState.blockedUsers.length > 0 }
@@ -2420,7 +2420,7 @@ function renderFriendsList() {
             const other = thread.otherUser || {};
             const title = getDmThreadTitle(thread);
             const subtitle = isGroup ? `${(thread.members || []).length} members` : "Direct message";
-            const avatarText = isGroup ? "G" : (title || "C").charAt(0).toUpperCase();
+            const avatarText = (title || (isGroup ? "Group" : "Crewmate")).trim().charAt(0).toUpperCase();
             const avatarColor = isGroup ? "#f6c243" : (other.avatarColor || "cyan");
             const preview = formatDmThreadPreview(thread.lastMessage);
             return `

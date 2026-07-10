@@ -71,6 +71,57 @@ const DEFAULT_PRIVACY_SETTINGS = {
   shareZoneActivity: true,
   criticalAlerts: true,
 };
+const BAD_WORDS_BY_FILTER = {
+  Lenient: [
+    "fuck",
+    "shit",
+    "bitch",
+    "cunt",
+    "nigger",
+    "faggot",
+  ],
+  Standard: [
+    "asshole",
+    "bastard",
+    "bitch",
+    "bullshit",
+    "cunt",
+    "dick",
+    "faggot",
+    "fuck",
+    "motherfucker",
+    "nigger",
+    "piss",
+    "prick",
+    "shit",
+    "slut",
+    "whore",
+  ],
+  Strict: [
+    "ass",
+    "asshole",
+    "bastard",
+    "bitch",
+    "bullshit",
+    "crap",
+    "cunt",
+    "damn",
+    "dick",
+    "faggot",
+    "fuck",
+    "hell",
+    "idiot",
+    "moron",
+    "motherfucker",
+    "nigger",
+    "piss",
+    "prick",
+    "shit",
+    "slut",
+    "stupid",
+    "whore",
+  ],
+};
 const POST_CATEGORIES = new Set(["Astrophysics", "Astrometry", "Astrogeology", "Astrobiology"]);
 const LEGACY_POST_CATEGORY_MAP = {
   Space: "Astrophysics",
@@ -289,6 +340,37 @@ function normalizePostCategory(value) {
   const raw = String(value || "").trim();
   if (POST_CATEGORIES.has(raw)) return raw;
   return LEGACY_POST_CATEGORY_MAP[raw] || "Astrophysics";
+}
+
+function escapeRegExp(value) {
+  return String(value || "").replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+function normalizeContentFilter(value) {
+  const raw = String(value || "").trim();
+  if (raw === "Relaxed") return "Lenient";
+  if (["Lenient", "Standard", "Strict"].includes(raw)) return raw;
+  return DEFAULT_PRIVACY_SETTINGS.contentFilter;
+}
+
+function getBadWordsForFilter(level) {
+  const normalized = normalizeContentFilter(level);
+  return BAD_WORDS_BY_FILTER[normalized] || BAD_WORDS_BY_FILTER.Standard;
+}
+
+function findBlockedWord(text, level) {
+  const input = String(text || "");
+  return getBadWordsForFilter(level).find((word) => {
+    const pattern = new RegExp(`(^|[^a-z0-9])${escapeRegExp(word)}([^a-z0-9]|$)`, "i");
+    return pattern.test(input);
+  }) || "";
+}
+
+function validateParentalContent(userId, ...parts) {
+  const settings = getUserPrivacySettings(userId);
+  const blockedWord = findBlockedWord(parts.join(" "), settings.contentFilter);
+  if (!blockedWord) return null;
+  return `Parental controls blocked this content under ${settings.contentFilter} filtering.`;
 }
 
 function normalizeImageUrl(value) {
@@ -1150,10 +1232,9 @@ function areBlockedEitherWay(userId, otherUserId) {
 function normalizePrivacySettings(row = {}) {
   const privacyModes = new Set(["Enabled", "Friends Only", "Public"]);
   const dmOptions = new Set(["Crewmates Only", "Followers", "Everyone"]);
-  const filters = new Set(["Strict", "Standard", "Relaxed"]);
   const privacyMode = privacyModes.has(row.privacy_mode || row.privacyMode) ? (row.privacy_mode || row.privacyMode) : DEFAULT_PRIVACY_SETTINGS.privacyMode;
   const dmPermissions = dmOptions.has(row.dm_permissions || row.dmPermissions) ? (row.dm_permissions || row.dmPermissions) : DEFAULT_PRIVACY_SETTINGS.dmPermissions;
-  const contentFilter = filters.has(row.content_filter || row.contentFilter) ? (row.content_filter || row.contentFilter) : DEFAULT_PRIVACY_SETTINGS.contentFilter;
+  const contentFilter = normalizeContentFilter(row.content_filter || row.contentFilter);
   return {
     privacyMode,
     dmPermissions,
@@ -2057,6 +2138,8 @@ async function route(req, res) {
     if (postBody.length < 1 || postBody.length > 2000) {
       return json(res, 400, { error: "Post body must be 1-2000 characters." });
     }
+    const parentalError = validateParentalContent(userId, title, postBody);
+    if (parentalError) return json(res, 400, { error: parentalError });
     try {
       imageUrl = normalizeImageUrl(body.imageUrl);
     } catch (error) {
@@ -2460,6 +2543,8 @@ async function route(req, res) {
     const body = await readBody(req);
     const content = String(body.content || "").trim();
     if (content.length < 1 || content.length > 500) return json(res, 400, { error: "Comment must be 1-500 characters." });
+    const parentalError = validateParentalContent(userId, content);
+    if (parentalError) return json(res, 400, { error: parentalError });
 
     const post = get("SELECT id FROM posts WHERE id = ?", [postId]);
     if (!post) return json(res, 404, { error: "Post not found." });
@@ -2618,6 +2703,8 @@ async function route(req, res) {
     const body = await readBody(req);
     const content = String(body.body || body.content || "").trim();
     if (content.length < 1 || content.length > 1000) return json(res, 400, { error: "Message must be 1-1000 characters." });
+    const parentalError = validateParentalContent(userId, content);
+    if (parentalError) return json(res, 400, { error: parentalError });
 
     const id = randomUUID();
     const timestamp = now();
