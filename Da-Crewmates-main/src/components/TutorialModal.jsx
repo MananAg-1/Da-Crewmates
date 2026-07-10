@@ -41,31 +41,64 @@ export default function TutorialModal({ user, onClose }) {
           display: "flex",
           flexDirection: "column",
           gap: 12,
+          overflow: "hidden",
         }}
       >
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+        {/* Header */}
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexShrink: 0 }}>
           <h2 style={{ margin: 0, fontSize: "1.15rem" }}>Welcome to Da Crewmates — Quick Tutorial</h2>
           <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-            <label style={{ fontSize: "0.9rem", display: "flex", gap: 8, alignItems: "center" }}>
+            <label style={{ fontSize: "0.9rem", display: "flex", gap: 8, alignItems: "center", whiteSpace: "nowrap" }}>
               <input type="checkbox" checked={dontShowAgain} onChange={(e) => setDontShowAgain(e.target.checked)} />
               Don't show again
             </label>
             <button
               onClick={() => handleClose(dontShowAgain)}
-              style={{ padding: "8px 12px", borderRadius: 8, border: "1px solid #ccc", background: "#f5f5f5" }}
+              style={{ padding: "8px 12px", borderRadius: 8, border: "1px solid #ccc", background: "#f5f5f5", flexShrink: 0 }}
             >
               Close
             </button>
           </div>
         </div>
 
-        <div style={{ flex: 1, display: "grid", gap: 12 }}>
-          <div style={{ position: "relative", paddingTop: "56.25%", background: "#000", borderRadius: 8, overflow: "hidden" }}>
-           
-            <iframe width="951" height="535" src="https://www.youtube.com/embed/AMcnrNJnCXs" title="Tutorial" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen></iframe>
+        {/* Scrollable Content Area */}
+        <div style={{ 
+          flex: 1, 
+          display: "flex", 
+          flexDirection: "column", 
+          gap: 12, 
+          overflow: "auto",
+          minHeight: 0 
+        }}>
+          {/* Video Container */}
+          <div style={{ 
+            position: "relative", 
+            paddingTop: "56.25%", 
+            background: "#000", 
+            borderRadius: 8, 
+            overflow: "hidden",
+            flexShrink: 0
+          }}>
+            <iframe 
+              width="951" 
+              height="535" 
+              src="https://www.youtube.com/embed/AMcnrNJnCXs" 
+              title="Tutorial" 
+              frameBorder="0" 
+              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" 
+              allowFullScreen
+              style={{
+                position: "absolute",
+                top: 0,
+                left: 0,
+                width: "100%",
+                height: "100%",
+              }}
+            />
           </div>
 
-          <p style={{ margin: 0, color: "#333" }}>
+          {/* Description Text */}
+          <p style={{ margin: 0, color: "#333", fontSize: "0.95rem", lineHeight: 1.5, flexShrink: 0 }}>
             This short video walks through the basic station navigation and where to find posts, messages, and settings. If you'd prefer not to see this again, check "Don't show again" and close the window.
           </p>
         </div>
