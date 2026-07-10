@@ -42,6 +42,7 @@ export default function TutorialModal({ user, onClose }) {
           flexDirection: "column",
           gap: 12,
           overflow: "hidden",
+          color: "#000",
         }}
       >
         {/* Header */}
@@ -98,8 +99,8 @@ export default function TutorialModal({ user, onClose }) {
           </div>
 
           {/* Description Text */}
-          <p style={{ margin: 0, color: "#333", fontSize: "0.95rem", lineHeight: 1.5, flexShrink: 0 }}>
-            This short video walks through the basic station navigation and where to find posts, messages, and settings. If you'd prefer not to see this again, check "Don't show again" and close the window.
+          <p style={{ margin: 0, color: "inherit", fontSize: "0.95rem", lineHeight: 1.5, flexShrink: 0 }}>
+            This short video walks through the basic station navigation and where to find posts, messages, and settings. If you'd prefer not to see this again, check "Don't show again" and close the w[...]
           </p>
         </div>
       </div>
