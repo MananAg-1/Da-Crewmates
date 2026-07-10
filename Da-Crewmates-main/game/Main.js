@@ -932,7 +932,9 @@ function getAllPosts() {
 }
 
 function getPostById(postId) {
-  return postStore.posts.find(post => post.id === postId) || null;
+  return postStore.posts.find(post => post.id === postId)
+    || storageState.myPosts.find(post => post.id === postId)
+    || null;
 }
 
 function getPostCommentCount(post) {
@@ -957,6 +959,7 @@ function renderPostImage(post, extraClass = "") {
 function createPost(rawPost) {
   const post = normalizePost(rawPost);
   postStore.posts.unshift(post);
+  addMyPostToStorageHistory(post);
   return post;
 }
 
@@ -3501,6 +3504,7 @@ async function submitElecPost() {
     newPost = await createPostOnBackend(draftPost);
     newPost.canDelete = true;
     postStore.posts.unshift(newPost);
+    addMyPostToStorageHistory(newPost);
     postStore.backendReady = true;
   } catch (error) {
     console.warn("Create post sync failed:", error.message);
@@ -3823,12 +3827,15 @@ function renderStorageTabs() {
 }
 
 function getMyPostsForStorage() {
-  const merged = new Map();
-  getAllPosts()
-    .filter(post => post.authorId === CURRENT_USER_ID)
-    .forEach(post => merged.set(post.id, post));
-  storageState.myPosts.forEach(post => merged.set(post.id, post));
-  return [...merged.values()].sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+  return [...storageState.myPosts].sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+}
+
+function addMyPostToStorageHistory(post) {
+  if (!post || post.authorId !== CURRENT_USER_ID) return;
+  storageState.myPosts = [
+    post,
+    ...storageState.myPosts.filter(item => item.id !== post.id)
+  ];
 }
 
 async function loadMyPostsForStorage() {
@@ -3837,9 +3844,6 @@ async function loadMyPostsForStorage() {
   try {
     const data = await apiRequest("/api/posts?mine=1&feed=new&limit=100");
     storageState.myPosts = normalizePostsResponse(data).map(normalizePost);
-    storageState.myPosts.forEach(post => {
-      if (!getPostById(post.id)) postStore.posts.push(post);
-    });
     if (storageState.activeTab === "mine") {
       renderStorageList();
       renderStorageDetail();
