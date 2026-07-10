@@ -42,7 +42,7 @@ export default function TutorialModal({ user, onClose }) {
           flexDirection: "column",
           gap: 12,
           overflow: "hidden",
-          color: "#000",
+          color: "#fff",
         }}
       >
         {/* Header */}
