@@ -2400,7 +2400,6 @@ function renderFriendsList() {
           <span id="daily-objective-summary" class="state-badge">Loading</span>
         </div>
         <div id="daily-objective-list" class="daily-objective-list"></div>
-        <button class="dynamic-btn danger-btn" type="button" onclick="endCurrentSession()">End Session</button>
       </div>
     `;
     renderObjectivePanel();
