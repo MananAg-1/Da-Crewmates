@@ -3590,7 +3590,7 @@ async function submitElecPost() {
   } catch (error) {
     console.warn("Create post sync failed:", error.message);
     if (status) {
-      status.textContent = "Could not transmit. Check that the backend is running, then try again.";
+      status.textContent = error.message || "Could not transmit. Check that the backend is running, then try again.";
       status.style.color = "#7f1d1d";
     }
     return;

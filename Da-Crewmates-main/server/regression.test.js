@@ -226,6 +226,16 @@ test("applies Shields parental content filter levels", async () => {
   });
   assert.equal(lenientPost.response.status, 201);
 
+  const strictViewer = `parental-viewer-${runId}`;
+  await request("/api/users/me/privacy", {
+    userId: strictViewer,
+    method: "PATCH",
+    body: { contentFilter: "Strict" }
+  });
+  const hiddenPosts = await request("/api/posts?feed=new&limit=100", { userId: strictViewer });
+  assert.equal(hiddenPosts.response.status, 200);
+  assert.equal(hiddenPosts.data.posts.some((post) => post.id === lenientPost.data.post.id), false);
+
   await request("/api/users/me/privacy", {
     userId: parentUser,
     method: "PATCH",
@@ -238,6 +248,26 @@ test("applies Shields parental content filter levels", async () => {
   });
   assert.equal(strictComment.response.status, 400);
 
+  await request("/api/users/me/privacy", {
+    userId: parentUser,
+    method: "PATCH",
+    body: { contentFilter: "Lenient" }
+  });
+  const lenientComment = await request(`/api/posts/${lenientPost.data.post.id}/comments`, {
+    userId: parentUser,
+    method: "POST",
+    body: { content: "That was a damn close reading." }
+  });
+  assert.equal(lenientComment.response.status, 201);
+  const hiddenComments = await request(`/api/posts/${lenientPost.data.post.id}/comments`, { userId: strictViewer });
+  assert.equal(hiddenComments.response.status, 200);
+  assert.equal(hiddenComments.data.comments.some((comment) => comment.id === lenientComment.data.comment.id), false);
+
+  await request("/api/users/me/privacy", {
+    userId: parentUser,
+    method: "PATCH",
+    body: { contentFilter: "Strict" }
+  });
   await request(`/api/users/${encodeURIComponent(friend)}/follow`, { userId: parentUser, method: "POST" });
   await request(`/api/users/${encodeURIComponent(parentUser)}/follow`, { userId: friend, method: "POST" });
   const thread = await request("/api/dm/threads", {

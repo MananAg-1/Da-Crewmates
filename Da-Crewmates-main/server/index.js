@@ -373,6 +373,11 @@ function validateParentalContent(userId, ...parts) {
   return `Parental controls blocked this content under ${settings.contentFilter} filtering.`;
 }
 
+function canViewParentalContent(viewerId, ...parts) {
+  const settings = getUserPrivacySettings(viewerId);
+  return !findBlockedWord(parts.join(" "), settings.contentFilter);
+}
+
 function normalizeImageUrl(value) {
   const raw = String(value || "").trim();
   if (!raw) return "";
@@ -1091,7 +1096,16 @@ function selectPostsForUser({ userId, where = "", params = [], orderBy = "posts.
      ORDER BY ${orderBy}
      LIMIT ?`,
     [userId, userId, userId, ...params, limit]
-  ).map(serializePost);
+  )
+    .filter((row) => canViewParentalContent(userId, row.title, row.body || row.content))
+    .map((row) => ({ ...row, comments_count: getVisibleCommentCount(row.id, userId) }))
+    .map(serializePost);
+}
+
+function getVisibleCommentCount(postId, viewerId) {
+  return all("SELECT content FROM comments WHERE post_id = ?", [postId])
+    .filter((row) => canViewParentalContent(viewerId, row.content))
+    .length;
 }
 
 function decodeHtmlEntities(value) {
@@ -2529,12 +2543,14 @@ async function route(req, res) {
        JOIN users ON users.id = comments.user_id 
        WHERE comments.post_id = ? 
        ORDER BY comments.created_at ASC`, [postId]
-    ).map(row => ({
-      id: row.id,
-      authorName: row.display_name,
-      content: row.content,
-      createdAt: row.created_at
-    }));
+    )
+      .filter((row) => canViewParentalContent(userId, row.content))
+      .map(row => ({
+        id: row.id,
+        authorName: row.display_name,
+        content: row.content,
+        createdAt: row.created_at
+      }));
     return json(res, 200, { comments });
   }
 
