@@ -819,7 +819,7 @@ function renderObjectivePanel() {
   const summary = document.getElementById("daily-objective-summary");
   if (!list || !summary) return;
   const progress = getObjectiveProgress();
-  summary.textContent = `${progress.done}/${progress.total} complete | ${sessionState.streak || 0} day streak`;
+  summary.textContent = `${progress.done} Point(s) Earned | ${sessionState.streak || 0} day streak`;
   list.innerHTML = sessionState.objectives.map((objective) => {
     const current = Math.min(objective.current_count, objective.target_count);
     return `
