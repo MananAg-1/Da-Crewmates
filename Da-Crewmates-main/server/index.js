@@ -1932,10 +1932,15 @@ async function route(req, res) {
     const rawTag = String(url.searchParams.get("tag") || "").trim();
     const tag = rawTag ? normalizePostCategory(rawTag) : "";
     const unseenOnly = url.searchParams.get("unseen") === "1";
+    const mineOnly = url.searchParams.get("mine") === "1";
     const limit = Math.min(Math.max(Number(url.searchParams.get("limit") || 50), 1), 100);
     const whereParts = [];
     const params = [];
 
+    if (mineOnly) {
+      whereParts.push("posts.user_id = ?");
+      params.push(userId);
+    }
     if (tag) {
       whereParts.push("posts.tag = ?");
       params.push(tag);

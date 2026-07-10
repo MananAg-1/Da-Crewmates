@@ -922,7 +922,7 @@ function refreshPostViews() {
   updateO2UnseenCount();
   renderWeaponsFeed();
   renderWeaponsDetail();
-  renderStorageSavedList();
+  renderStorageList();
   renderStorageDetail();
   updateStorageSavedCount();
 }
@@ -1015,6 +1015,7 @@ function syncVoteToBackend(postId, direction) {
 
 function deletePostFromStore(postId) {
   postStore.posts = postStore.posts.filter(post => post.id !== postId);
+  storageState.myPosts = storageState.myPosts.filter(post => post.id !== postId);
   cafeteriaState.shuffleOrder = null;
   if (cafeteriaState.selectedPostId === postId) cafeteriaState.selectedPostId = getCafeteriaPosts()[0]?.id || null;
   if (o2State.selectedPostId === postId) o2State.selectedPostId = null;
@@ -2910,7 +2911,7 @@ function selectSharedPostAfterWarp(postId, surface) {
       }
       if (surface === "storage") {
         storageState.selectedPostId = postId;
-        renderStorageSavedList();
+        renderStorageList();
         renderStorageDetail();
         return;
       }
@@ -3776,13 +3777,18 @@ function weaponsVote(direction) {
 
 // Storage Terminal Hub (Saved Posts Manifest)
 const storageState = {
-  selectedPostId: null
+  activeTab: "saved",
+  selectedPostId: null,
+  myPosts: [],
+  isLoadingMine: false
 };
 
 function initStorageHub() {
   loadPostsFromBackend();
+  loadMyPostsForStorage();
   storageState.selectedPostId = null;
-  renderStorageSavedList();
+  renderStorageTabs();
+  renderStorageList();
   renderStorageDetail();
   updateStorageSavedCount();
 }
@@ -3790,30 +3796,85 @@ function initStorageHub() {
 function updateStorageSavedCount() {
   const el = document.getElementById("storage-saved-count");
   const savedCount = getSavedPosts().length;
-  if (el) el.textContent = `${savedCount} item${savedCount === 1 ? "" : "s"}`;
+  const myCount = getMyPostsForStorage().length;
+  if (el) el.textContent = storageState.activeTab === "mine"
+    ? `${myCount} post${myCount === 1 ? "" : "s"}`
+    : `${savedCount} item${savedCount === 1 ? "" : "s"}`;
 }
 
-function renderStorageSavedList() {
+function setStorageTab(tab) {
+  storageState.activeTab = tab === "mine" ? "mine" : "saved";
+  storageState.selectedPostId = null;
+  renderStorageTabs();
+  renderStorageList();
+  renderStorageDetail();
+  updateStorageSavedCount();
+  if (storageState.activeTab === "mine") loadMyPostsForStorage();
+}
+
+function renderStorageTabs() {
+  document.querySelectorAll(".storage-tab-btn").forEach(btn => {
+    btn.classList.toggle("selected", btn.dataset.storageTab === storageState.activeTab);
+  });
+  const listTitle = document.getElementById("storage-list-title");
+  const detailTitle = document.getElementById("storage-detail-title");
+  if (listTitle) listTitle.textContent = storageState.activeTab === "mine" ? "My Posts" : "Saved Feeds";
+  if (detailTitle) detailTitle.textContent = storageState.activeTab === "mine" ? "Selected Post" : "Selected Saved Post";
+}
+
+function getMyPostsForStorage() {
+  const merged = new Map();
+  getAllPosts()
+    .filter(post => post.authorId === CURRENT_USER_ID)
+    .forEach(post => merged.set(post.id, post));
+  storageState.myPosts.forEach(post => merged.set(post.id, post));
+  return [...merged.values()].sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+}
+
+async function loadMyPostsForStorage() {
+  if (storageState.isLoadingMine) return;
+  storageState.isLoadingMine = true;
+  try {
+    const data = await apiRequest("/api/posts?mine=1&feed=new&limit=100");
+    storageState.myPosts = normalizePostsResponse(data).map(normalizePost);
+    storageState.myPosts.forEach(post => {
+      if (!getPostById(post.id)) postStore.posts.push(post);
+    });
+    if (storageState.activeTab === "mine") {
+      renderStorageList();
+      renderStorageDetail();
+      updateStorageSavedCount();
+    }
+  } catch (error) {
+    console.warn("My posts history load failed:", error.message);
+  } finally {
+    storageState.isLoadingMine = false;
+  }
+}
+
+function renderStorageList() {
   const list = document.getElementById("storage-saved-list");
   if (!list) return;
 
-  const items = getSavedPosts();
+  const isMine = storageState.activeTab === "mine";
+  const items = isMine ? getMyPostsForStorage() : getSavedPosts();
   if (items.length === 0) {
-    list.innerHTML = `<p class="storage-meta">No saved posts found in data banks.</p>`;
+    list.innerHTML = `<p class="storage-meta">${isMine ? "No posts created by you yet. Publish one from Electrical." : "No saved posts found in data banks."}</p>`;
     return;
   }
 
   list.innerHTML = items.map(post => `
     <div class="storage-saved-item ${post.id === storageState.selectedPostId ? "selected" : ""}" onclick="selectStoragePost('${escapeInlineArg(post.id)}')">
-      <p class="storage-meta">${normalizePostCategory(post.tag)} | ${getPostScoreLabel(post)}</p>
+      <p class="storage-meta">${normalizePostCategory(post.tag)} | ${getPostScoreLabel(post)} | ${new Date(post.createdAt).toLocaleDateString()}</p>
       <p><strong>${post.title}</strong></p>
+      ${isMine ? `<p class="storage-meta">${getPostCommentCount(post)} comment${getPostCommentCount(post) === 1 ? "" : "s"}</p>` : ""}
     </div>
   `).join("");
 }
 
 function selectStoragePost(postId) {
   storageState.selectedPostId = postId;
-  renderStorageSavedList();
+  renderStorageList();
   renderStorageDetail();
 }
 
@@ -3821,23 +3882,28 @@ function renderStorageDetail() {
   const meta = document.getElementById("storage-selected-meta");
   const detail = document.getElementById("storage-post-detail");
   const actions = document.getElementById("storage-post-actions");
+  const removeButton = document.getElementById("storage-remove-bookmark-btn");
+  const deleteButton = document.getElementById("storage-delete-post-btn");
   if (!meta || !detail || !actions) return;
 
   const post = getPostById(storageState.selectedPostId);
   if (!post) {
-    meta.textContent = "Select a saved post to view details.";
-    detail.innerHTML = "<p>No saved transmission selected.</p>";
+    meta.textContent = storageState.activeTab === "mine" ? "Select one of your posts to view details." : "Select a saved post to view details.";
+    detail.innerHTML = `<p>${storageState.activeTab === "mine" ? "No authored transmission selected." : "No saved transmission selected."}</p>`;
     actions.style.display = "none";
+    if (deleteButton) deleteButton.style.display = "none";
     return;
   }
 
-  meta.textContent = `${normalizePostCategory(post.tag)} | ${getPostScoreLabel(post)}`;
+  meta.textContent = `${normalizePostCategory(post.tag)} | ${getPostScoreLabel(post)} | ${getPostCommentCount(post)} comments | ${new Date(post.createdAt).toLocaleDateString()}`;
   detail.innerHTML = `
     <p style="font-weight:bold; margin:0 0 6px;">${post.title}</p>
     ${renderPostImage(post)}
     <p style="margin:0; font-size:13px; text-transform:none;">${post.body || "No details available."}</p>
   `;
   actions.style.display = "block";
+  if (removeButton) removeButton.style.display = storageState.activeTab === "saved" ? "inline-flex" : "none";
+  if (deleteButton) deleteButton.style.display = storageState.activeTab === "mine" && post.canDelete ? "inline-flex" : "none";
 }
 
 function unsavePostFromStorage() {

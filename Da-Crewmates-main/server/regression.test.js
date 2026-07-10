@@ -160,6 +160,36 @@ test("stores optional post image CDN URLs", async () => {
   assert.equal(posts.data.posts.some((post) => post.id === created.data.post.id && post.imageUrl === imageUrl), true);
 });
 
+test("filters post history to the current user's posts", async () => {
+  const author = `history-author-${runId}`;
+  const other = `history-other-${runId}`;
+
+  const mine = await request("/api/posts", {
+    userId: author,
+    method: "POST",
+    body: { title: "My history transmission", body: "This belongs in my post history.", tag: "Astrophysics" }
+  });
+  assert.equal(mine.response.status, 201);
+
+  const theirs = await request("/api/posts", {
+    userId: other,
+    method: "POST",
+    body: { title: "Other history transmission", body: "This should stay out of my post history.", tag: "Astrometry" }
+  });
+  assert.equal(theirs.response.status, 201);
+
+  const history = await request("/api/posts?mine=1&feed=new&limit=100", { userId: author });
+  assert.equal(history.response.status, 200);
+  assert.equal(history.data.posts.some((post) => post.id === mine.data.post.id), true);
+  assert.equal(history.data.posts.some((post) => post.id === theirs.data.post.id), false);
+
+  const deleted = await request(`/api/posts/${mine.data.post.id}`, { userId: author, method: "DELETE" });
+  assert.equal(deleted.response.status, 200);
+
+  const afterDelete = await request("/api/posts?mine=1&feed=new&limit=100", { userId: author });
+  assert.equal(afterDelete.data.posts.some((post) => post.id === mine.data.post.id), false);
+});
+
 test("rejects unsupported post image uploads", async () => {
   const boundary = `boundary-${runId}`;
   const body = [

@@ -612,29 +612,35 @@
     <div class="storage-header">
       <div>
         <p class="storage-kicker">Storage Zone</p>
-        <h3>Saved Transmissions</h3>
+        <h3>Transmission Data Bank</h3>
       </div>
       <div class="storage-status-pill">
         <span id="storage-saved-count">0 items</span>
       </div>
     </div>
 
+    <div class="storage-tab-row">
+      <button class="storage-tab-btn selected" type="button" data-storage-tab="saved" onclick="setStorageTab('saved')">Saved</button>
+      <button class="storage-tab-btn" type="button" data-storage-tab="mine" onclick="setStorageTab('mine')">My Posts</button>
+    </div>
+
     <section class="storage-panel">
-      <h4>Saved Feeds</h4>
+      <h4 id="storage-list-title">Saved Feeds</h4>
       <div id="storage-saved-list" class="storage-saved-list">
         <p class="storage-meta">No saved posts found in data banks.</p>
       </div>
     </section>
 
     <section class="storage-panel" id="storage-detail-section" style="margin-top:12px;">
-      <h4>Selected Saved Post</h4>
+      <h4 id="storage-detail-title">Selected Saved Post</h4>
       <p id="storage-selected-meta" class="storage-meta">Select a saved post to view details.</p>
       <div id="storage-post-detail" class="storage-post-detail">
         <p>No saved transmission selected.</p>
       </div>
       <div id="storage-post-actions" class="storage-post-actions" style="display:none; margin-top:12px;">
-        <button class="dynamic-btn" type="button" onclick="unsavePostFromStorage()">Remove Bookmark</button>
+        <button class="dynamic-btn" id="storage-remove-bookmark-btn" type="button" onclick="unsavePostFromStorage()">Remove Bookmark</button>
         <button class="dynamic-btn" type="button" onclick="shareActivePost('storage')">Share</button>
+        <button class="dynamic-btn danger-btn" id="storage-delete-post-btn" type="button" onclick="deleteActivePost('storage')" style="display:none;">Delete Post</button>
       </div>
     </section>
   </div>
