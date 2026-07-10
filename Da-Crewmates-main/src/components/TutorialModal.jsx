@@ -22,7 +22,7 @@ export default function TutorialModal({ user, onClose }) {
     <div style={{ position: "fixed", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1200 }}>
       <div
         onClick={() => handleClose(false)}
-        style={{ position: "absolute", inset: 0, background: "rgba(2,6,23,0.6)" }}
+        style={{ position: "absolute", inset: 0, background: "rgba(0,0,0,0.6)" }}
         aria-hidden
       />
 
@@ -61,13 +61,8 @@ export default function TutorialModal({ user, onClose }) {
 
         <div style={{ flex: 1, display: "grid", gap: 12 }}>
           <div style={{ position: "relative", paddingTop: "56.25%", background: "#000", borderRadius: 8, overflow: "hidden" }}>
-            <iframe
-              title="Da Crewmates Tutorial"
-              src="Tutorial.mp4"
-              style={{ position: "absolute", inset: 0, width: "100%", height: "100%", border: 0 }}
-              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-              allowFullScreen
-            />
+           
+            <iframe width="951" height="535" src="https://www.youtube.com/embed/AMcnrNJnCXs" title="Tutorial" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen></iframe>
           </div>
 
           <p style={{ margin: 0, color: "#333" }}>
